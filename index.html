@@ -122,6 +122,17 @@
           <p class="empty-privacy">Nothing is uploaded. Images stay in your browser.</p>
         </div>
 
+        <div id="loading" class="loading" role="status" aria-live="polite" hidden>
+          <span class="loading-spinner" aria-hidden="true"></span>
+          <h1 id="loadingTitle">Preparing image</h1>
+          <p id="loadingDetail">Reading the file and building a smooth editing preview.</p>
+          <div id="loadingBar" class="loading-bar" role="progressbar"
+            aria-label="Image preparation" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <span id="loadingFill" class="loading-fill"></span>
+          </div>
+          <span id="loadingPercent" class="loading-percent">0%</span>
+        </div>
+
       </div>
 
       <div id="adjust" class="adjust" role="tabpanel" aria-labelledby="modeAdjust" hidden>

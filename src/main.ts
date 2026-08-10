@@ -180,6 +180,7 @@ function showFileIdentity(item: CropItem): void {
 type Room = 'crop' | 'adjust' | 'batch' | 'convert';
 let room: Room = 'crop';
 let hasImage = false;
+let loadingActive = false;
 
 // The framing surface belongs to two of the four rooms: Batch is Crop with a
 // queue attached, so the frame, the zoom and the readouts are all still the job.
@@ -191,7 +192,7 @@ const framingRoom = (): boolean => room !== 'adjust' && room !== 'convert';
 function syncStageChrome(): void {
   const framing = framingRoom();
   const batching = room === 'batch';
-  $('#empty').hidden = hasImage;
+  $('#empty').hidden = hasImage && !loadingActive;
   // The rooms are the app's navigation, so they stay on screen and go quiet
   // instead of disappearing: an empty rail reads as a broken rail. Batch is the
   // exception — it is a door to somewhere else, and it opens with no picture.
@@ -484,6 +485,77 @@ function cycleView(): void {
 
 // ---- intake ----------------------------------------------------------------
 
+let loadingGeneration = 0;
+let loadingFrame = 0;
+let loadingCompleted = 0;
+let loadingTotal = 1;
+let loadingFileStarted = 0;
+let loadingShown = 0;
+
+function showLoadingProgress(fraction: number): void {
+  loadingShown = Math.max(loadingShown, fraction);
+  const percent = Math.max(0, Math.min(100, Math.round(loadingShown * 100)));
+  $('#loadingFill').style.width = `${percent}%`;
+  $('#loadingPercent').textContent = `${percent}%`;
+  $('#loadingBar').setAttribute('aria-valuenow', String(percent));
+}
+
+function animateLoading(generation: number): void {
+  if (generation !== loadingGeneration || !loadingActive) return;
+  // Browsers do not expose decode/resize byte progress. Completed files are
+  // exact; within the current file this approaches, but never reaches, its end
+  // until decode and preview preparation actually resolve.
+  const elapsed = performance.now() - loadingFileStarted;
+  const withinFile = 0.88 * (1 - Math.exp(-elapsed / 1_350));
+  showLoadingProgress((loadingCompleted + withinFile) / loadingTotal);
+  loadingFrame = requestAnimationFrame(() => animateLoading(generation));
+}
+
+async function beginLoading(count: number): Promise<number> {
+  const generation = ++loadingGeneration;
+  if (loadingFrame) cancelAnimationFrame(loadingFrame);
+  loadingActive = true;
+  loadingCompleted = 0;
+  loadingTotal = Math.max(1, count);
+  loadingFileStarted = performance.now();
+  loadingShown = 0;
+  $('#loadingTitle').textContent = count === 1 ? 'Preparing image' : `Preparing ${count} images`;
+  $('#loadingDetail').textContent = count === 1
+    ? 'Reading the file and building a smooth editing preview.'
+    : 'Preparing the stack one image at a time to keep the app responsive.';
+  $('#emptyDefault').hidden = true;
+  $('#loading').hidden = false;
+  $('#empty').hidden = false;
+  showLoadingProgress(0.02 / loadingTotal);
+  loadingFrame = requestAnimationFrame(() => animateLoading(generation));
+  // Guarantee the acknowledgement paints before any large decode begins.
+  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  return generation;
+}
+
+function markFilePrepared(generation: number): void {
+  if (generation !== loadingGeneration) return;
+  loadingCompleted = Math.min(loadingTotal, loadingCompleted + 1);
+  loadingFileStarted = performance.now();
+  showLoadingProgress(Math.min(0.96, loadingCompleted / loadingTotal));
+}
+
+async function endLoading(generation: number, success: boolean): Promise<void> {
+  if (generation !== loadingGeneration) return;
+  if (loadingFrame) cancelAnimationFrame(loadingFrame);
+  loadingFrame = 0;
+  if (success) {
+    showLoadingProgress(1);
+    $('#loadingDetail').textContent = 'Ready.';
+    await new Promise<void>((resolve) => setTimeout(resolve, 160));
+    if (generation !== loadingGeneration) return;
+  }
+  loadingActive = false;
+  $('#loading').hidden = true;
+  $('#emptyDefault').hidden = hasImage;
+  syncStageChrome();
+}
+
 // Every way an image can arrive — drop, paste, file picker — comes through
 // here, and none of them stops to ask anything. Standing a modal in the doorway
 // only made sense if cropping to a preset were the one thing anyone ever wanted;
@@ -492,6 +564,8 @@ function cycleView(): void {
 async function intake(fileList: FileList | readonly File[]): Promise<void> {
   const files = Array.from(fileList).filter((file) => file.type.startsWith('image/'));
   if (!files.length) { announce('No images in that drop'); return; }
+  const loading = await beginLoading(files.length);
+  try {
 
   // A stack is a statement that these images share a destination, which is the
   // one thing Freeform does not have. The drop is the deliberate act (DEC-04),
@@ -513,9 +587,15 @@ async function intake(fileList: FileList | readonly File[]): Promise<void> {
       // Keep accepting the rest of a mixed drop; the existing empty-result
       // message below covers a queue in which nothing could be decoded.
     }
+    markFilePrepared(loading);
     await new Promise<void>((resolve) => setTimeout(resolve, 0));
   }
-  if (!items.length) { announce('None of those images could be opened'); return; }
+  if (loading !== loadingGeneration) return;
+  if (!items.length) {
+    await endLoading(loading, false);
+    announce('None of those images could be opened');
+    return;
+  }
 
   // Nobody has said what size they need yet, and the image itself is the best
   // answer to that question: its own pixels, nothing cut. Guessing a square
@@ -544,6 +624,7 @@ async function intake(fileList: FileList | readonly File[]): Promise<void> {
   if (awaitingBatchSize) {
     awaitingBatchSize = false;
     enterBatchWith(items);
+    await endLoading(loading, true);
     announce(`${items.length} image${items.length === 1 ? '' : 's'} ready to frame`);
     // The one question left is the size they all have to come out at, asked now
     // by the control that answers it rather than left as a sentence to find.
@@ -557,6 +638,7 @@ async function intake(fileList: FileList | readonly File[]): Promise<void> {
   // room asks of you, once, because you did not ask to be in it.
   if (room !== 'batch' && items.length > 1) {
     enterBatchWith(items);
+    await endLoading(loading, true);
     openCoach(items.length);
     announce(`${items.length} images loaded. Batch — frame each one, then keep it`);
     return;
@@ -569,6 +651,7 @@ async function intake(fileList: FileList | readonly File[]): Promise<void> {
     const kept = items[0];
     store.set({ items: [kept], activeIndex: -1 });
     activate(0);
+    await endLoading(loading, true);
     announce(replaced ? `Replaced with ${kept.file.name}` : `${kept.file.name} loaded`);
     return;
   }
@@ -576,7 +659,12 @@ async function intake(fileList: FileList | readonly File[]): Promise<void> {
   const firstNew = s.items.length;
   store.set({ items: [...s.items, ...items] });
   activate(s.activeIndex < 0 ? firstNew : s.activeIndex);
+  await endLoading(loading, true);
   announce(`${items.length} image${items.length === 1 ? '' : 's'} added`);
+  } catch {
+    await endLoading(loading, false);
+    announce('That image could not be prepared');
+  }
 }
 
 // Set while a deliberate entry into Batch is waiting for its images: the flow is
