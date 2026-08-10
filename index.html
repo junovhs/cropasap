@@ -525,17 +525,25 @@
      a different mode has to say what the mode asks of you, once, before you
      start guessing. -->
 <div id="coach" class="coach" hidden role="dialog" aria-modal="true" aria-labelledby="coachTitle">
-  <div class="coach-panel">
-    <span class="coach-mark icon" data-icon="layers"></span>
-    <h2 id="coachTitle">Batch is on</h2>
-    <p class="coach-lead">Every image gets its own crop, and you make each one.</p>
-    <ol class="coach-steps">
-      <li><strong>Drag and scroll</strong> the image until the frame holds what you want.</li>
-      <li><strong>Press <kbd>↵</kbd></strong>, or hit <em>Finalize this crop</em>, to keep it and jump to the next one.</li>
-      <li>At the end, export the lot as a single ZIP.</li>
-    </ol>
-    <button id="coachGo" class="primary" type="button">Frame the first one</button>
-    <p class="coach-out">Changed your mind? Turn Batch off in the sidebar.</p>
+  <div id="coachPanel" class="coach-panel">
+    <div id="coachCopy" class="coach-copy">
+      <span class="coach-mark icon" data-icon="layers"></span>
+      <h2 id="coachTitle">Batch is on</h2>
+      <p class="coach-lead">Choose the one output size every image will share.</p>
+      <ol class="coach-steps">
+        <li><strong>Pick the output size</strong> for the whole batch.</li>
+        <li><strong>Frame each image</strong>, then finalize it to move to the next.</li>
+        <li>At the end, export the lot as a single ZIP.</li>
+      </ol>
+      <button id="coachSize" class="coach-size" type="button" aria-haspopup="dialog">
+        <span class="coach-size-label">Output size</span>
+        <strong id="coachSizeValue">Choose a size</strong>
+        <span class="icon coach-size-chevron" data-icon="chevron-down"></span>
+      </button>
+      <p id="coachPreparing" class="coach-preparing">Preparing images in the background…</p>
+      <button id="coachConfirm" class="primary" type="button" disabled>Choose a size to continue</button>
+    </div>
+    <div id="coachPickerHost" class="coach-picker-host" hidden></div>
   </div>
 </div>
 

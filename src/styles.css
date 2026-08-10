@@ -1230,6 +1230,11 @@ body.is-framing .nav:focus-within { opacity: 1; }
   transition: transform .22s var(--ease);
 }
 .coach.open .coach-panel { transform: none; }
+.coach-panel.is-picking {
+  width: min(620px, 100%);
+  padding: 0;
+  text-align: left;
+}
 
 .coach-mark {
   width: 44px; height: 44px;
@@ -1264,8 +1269,51 @@ body.is-framing .nav:focus-within { opacity: 1; }
 .coach-steps em { font-style: normal; font-weight: 600; color: var(--accent-2); }
 .coach-steps kbd { margin: 0 1px; }
 
-.coach #coachGo { width: 100%; min-height: 44px; font-size: 14px; }
-.coach-out { margin: 14px 0 0; color: var(--ink-4); font-size: 11.5px; }
+.coach-size {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas: "label chevron" "value chevron";
+  align-items: center;
+  width: 100%;
+  min-height: 58px;
+  padding: 9px 14px;
+  border-color: var(--edge);
+  background: oklch(1 0 0 / 0.9);
+  text-align: left;
+}
+.coach-size:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-tint); }
+.coach-size-label {
+  grid-area: label;
+  color: var(--ink-4);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.coach-size strong { grid-area: value; color: var(--ink); font-size: 14px; }
+.coach-size-chevron { grid-area: chevron; width: 17px; height: 17px; color: var(--ink-3); }
+.coach-preparing { min-height: 18px; margin: 10px 0; color: var(--ink-3); font-size: 11.5px; }
+.coach-preparing.is-ready { color: var(--positive); font-weight: 600; }
+.coach #coachConfirm { width: 100%; min-height: 44px; font-size: 14px; }
+
+/* The existing size palette becomes the second face of the Batch card. It is
+   moved here while open so there is one search, one saved-size list and one
+   keyboard model rather than a look-alike picker with different behaviour. */
+.coach-picker-host .picker {
+  position: static;
+  display: block;
+  padding: 0;
+  background: transparent;
+  backdrop-filter: none;
+  opacity: 1;
+}
+.coach-picker-host .picker-panel {
+  width: 100%;
+  max-height: min(72vh, 650px);
+  border: 0;
+  transform: none;
+  box-shadow: none;
+}
 
 /* ---- filmstrip ---- */
 

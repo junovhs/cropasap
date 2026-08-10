@@ -258,27 +258,90 @@ function syncFramingChrome(): void {
 }
 
 // The explainer DEC-04 requires whenever a drop puts the app into batch by
-// itself. It states the loop, then gets out of the way.
+// itself. It also gives preview preparation useful cover time: size search is
+// cheap and immediately interactive while the bounded queue decodes behind it.
+let coachChoice: SizeResult | null = null;
+let coachReady = false;
+let coachPrepared = 0;
+let coachTotal = 0;
+
+function syncCoach(): void {
+  const choice = coachChoice;
+  $('#coachSizeValue').textContent = choice
+    ? `${choice.name} · ${choice.w} × ${choice.h}`
+    : 'Choose a size';
+  const preparing = $('#coachPreparing');
+  preparing.textContent = coachReady
+    ? `${coachTotal} image${coachTotal === 1 ? '' : 's'} ready.`
+    : `Preparing ${coachPrepared} of ${coachTotal} images in the background…`;
+  preparing.classList.toggle('is-ready', coachReady);
+  const confirm = $<HTMLButtonElement>('#coachConfirm');
+  confirm.disabled = !choice || !coachReady;
+  confirm.textContent = !choice
+    ? 'Choose a size to continue'
+    : coachReady
+      ? 'Confirm size and start framing'
+      : 'Finishing image preparation…';
+}
+
 function openCoach(count: number): void {
+  if (sizePicker.isOpen()) sizePicker.close();
   $('#coachTitle').textContent = `${count} images — one crop at a time`;
+  coachChoice = null;
+  coachReady = false;
+  coachPrepared = 0;
+  coachTotal = count;
+  syncCoach();
   const coach = $('#coach');
   coach.hidden = false;
   requestAnimationFrame(() => {
     coach.classList.add('open');
-    $<HTMLButtonElement>('#coachGo').focus();
+    $<HTMLButtonElement>('#coachSize').focus();
   });
 }
 
-function closeCoach(): void {
+function noteCoachPrepared(): void {
+  if ($('#coach').hidden) return;
+  coachPrepared = Math.min(coachTotal, coachPrepared + 1);
+  syncCoach();
+}
+
+function finishCoachPreparation(readyCount: number): void {
+  coachTotal = readyCount;
+  coachPrepared = coachTotal;
+  coachReady = true;
+  syncCoach();
+}
+
+function hideCoachPicker(): void {
+  $('#coachPanel').classList.remove('is-picking');
+  $('#coachPickerHost').hidden = true;
+  $('#coachCopy').hidden = false;
+}
+
+function openCoachPicker(): void {
+  $('#coachCopy').hidden = true;
+  $('#coachPickerHost').hidden = false;
+  $('#coachPanel').classList.add('is-picking');
+  sizePicker.open({
+    host: $<HTMLElement>('#coachPickerHost'),
+    returnFocus: $<HTMLButtonElement>('#coachSize'),
+    includeTemplate: false,
+    onClose: hideCoachPicker,
+  });
+}
+
+function closeCoach(promote = true): void {
   const coach = $('#coach');
   if (coach.hidden) return;
+  if (sizePicker.isOpen()) sizePicker.close();
   coach.classList.remove('open');
   coach.hidden = true;
   canvas.focus();
   // The automatic Batch explainer owns the foreground until it is dismissed.
   // Only after its closing frame has painted may the active queue preview be
   // promoted, so no image preparation can delay this button or its response.
-  requestAnimationFrame(() => promoteActiveImage());
+  if (promote) requestAnimationFrame(() => promoteActiveImage());
 }
 
 const ROOM_SAID: Readonly<Record<Room, string>> = {
@@ -561,15 +624,24 @@ async function endLoading(generation: number, success: boolean): Promise<void> {
 }
 
 // Every way an image can arrive — drop, paste, file picker — comes through
-// here, and none of them stops to ask anything. Standing a modal in the doorway
-// only made sense if cropping to a preset were the one thing anyone ever wanted;
-// it is not, and even when it is, the size is easier to answer once you can see
-// the picture. So the image lands, and the size stays one keystroke away.
+// here. One image lands without questions; several are already a deliberate
+// statement that they share a destination, so Batch asks for that shared size
+// while its bounded previews prepare in the background.
 async function intake(fileList: FileList | readonly File[]): Promise<void> {
   const files = Array.from(fileList).filter((file) => file.type.startsWith('image/'));
   if (!files.length) { announce('No images in that drop'); return; }
+  // A new intake supersedes an unfinished automatic Batch choice. This mainly
+  // protects paste and programmatic file selection, which can still arrive
+  // while a pointer-modal is on screen.
+  if (!$('#coach').hidden) closeCoach(false);
+  const automaticBatch = room !== 'batch' && files.length > 1 && !awaitingBatchSize;
   const loading = await beginLoading(files.length);
   try {
+
+  // The Batch decision is available from the FileList itself. Put its modal on
+  // screen now, before decode, so the size decision and queue preparation can
+  // proceed independently instead of making one wait visibly for the other.
+  if (automaticBatch) openCoach(files.length);
 
   // A stack is a statement that these images share a destination, which is the
   // one thing Freeform does not have. The drop is the deliberate act (DEC-04),
@@ -592,11 +664,13 @@ async function intake(fileList: FileList | readonly File[]): Promise<void> {
       // message below covers a queue in which nothing could be decoded.
     }
     markFilePrepared(loading);
+    if (automaticBatch) noteCoachPrepared();
     await new Promise<void>((resolve) => setTimeout(resolve, 0));
   }
   if (loading !== loadingGeneration) return;
   if (!items.length) {
     await endLoading(loading, false);
+    if (automaticBatch) closeCoach(false);
     announce('None of those images could be opened');
     return;
   }
@@ -640,11 +714,11 @@ async function intake(fileList: FileList | readonly File[]): Promise<void> {
   // dropping twelve files is the deliberate act, so it is honoured rather than
   // queried. Entering this way is never silent — the explainer says what the
   // room asks of you, once, because you did not ask to be in it.
-  if (room !== 'batch' && items.length > 1) {
+  if (automaticBatch) {
     enterBatchWith(items, false);
     await endLoading(loading, true);
-    openCoach(items.length);
-    announce(`${items.length} images loaded. Batch — frame each one, then keep it`);
+    finishCoachPreparation(items.length);
+    announce(`${items.length} images ready. Choose their output size, then start framing`);
     return;
   }
 
@@ -667,6 +741,7 @@ async function intake(fileList: FileList | readonly File[]): Promise<void> {
   announce(`${items.length} image${items.length === 1 ? '' : 's'} added`);
   } catch {
     await endLoading(loading, false);
+    if (automaticBatch) closeCoach(false);
     announce('That image could not be prepared');
   }
 }
@@ -1013,7 +1088,30 @@ function syncSizeConfidence(): void {
       ? 'Search by name, pixels or shape.'
       : hasImage
         ? 'Your image’s own size, nothing cropped. Click above to crop it to something else.'
-        : 'Just a suggestion — click above to set the size you need.';
+      : 'Just a suggestion — click above to set the size you need.';
+}
+
+function applyPickedSize(result: SizeResult): void {
+  sizeChosen = true;
+  applyTarget({ w: result.w, h: result.h, name: result.name });
+  // "Whole image" is a promise about the result, not just a size, so the crop
+  // is stated outright rather than arrived at. The obvious route — set the
+  // target, then fill the frame — cannot be trusted here: filling measures
+  // against the frame rect, and that rect spends the next few hundred ms
+  // animating out of the old shape, so a fill lands on an aspect belonging to
+  // neither size and the file ships with bars down two edges. Export reads
+  // item.frame, so naming the whole rectangle is both the truth and the thing
+  // written to disk, with no animation to wait on.
+  if (result.kind === 'whole') {
+    const item = activeItem();
+    if (item) {
+      const updated = useWholeImage(item, { w: result.w, h: result.h, label: result.name });
+      store.updateItem(item.id, () => updated);
+      view.setImage(displayImage(updated), updated.frame);
+    }
+    announce(`Whole image at ${result.w} by ${result.h} pixels. Nothing cropped`);
+  }
+  syncSizeConfidence();
 }
 
 const sizePicker = createSizePicker({
@@ -1037,27 +1135,16 @@ const sizePicker = createSizePicker({
   // leaves you exactly where the click implied — out of Freeform, on the size
   // you had before it.
   onBeforeOpen: () => { if (isFreeform()) setFreeform(false); },
-  onPick: (r: SizeResult) => {
-    sizeChosen = true;
-    applyTarget({ w: r.w, h: r.h, name: r.name });
-    // "Whole image" is a promise about the result, not just a size, so the crop
-    // is stated outright rather than arrived at. The obvious route — set the
-    // target, then fill the frame — cannot be trusted here: filling measures
-    // against the frame rect, and that rect spends the next few hundred ms
-    // animating out of the old shape, so a fill lands on an aspect belonging to
-    // neither size and the file ships with bars down two edges. Export reads
-    // item.frame, so naming the whole rectangle is both the truth and the thing
-    // written to disk, with no animation to wait on.
-    if (r.kind === 'whole') {
-      const item = activeItem();
-      if (item) {
-        const updated = useWholeImage(item, { w: r.w, h: r.h, label: r.name });
-        store.updateItem(item.id, () => updated);
-        view.setImage(displayImage(updated), updated.frame);
-      }
-      announce(`Whole image at ${r.w} by ${r.h} pixels. Nothing cropped`);
+  onPick: (result: SizeResult) => {
+    // In automatic Batch entry, choosing is deliberately reversible until the
+    // explicit confirmation. It also avoids touching every queued frame while
+    // previews may still be arriving in the background.
+    if (!$('#coach').hidden) {
+      coachChoice = result;
+      syncCoach();
+      return;
     }
-    syncSizeConfidence();
+    applyPickedSize(result);
   },
 });
 
@@ -1269,7 +1356,10 @@ document.addEventListener('keydown', (e) => {
   // The explainer is modal: Enter belongs to its button, not to the crop
   // waiting behind it.
   if (!$('#coach').hidden) {
-    if (e.key === 'Escape') { e.preventDefault(); closeCoach(); }
+    // Escape only backs out of the embedded palette (handled there). The Batch
+    // card itself remains the gate until a shared size is confirmed.
+    if (e.key === 'Escape') e.preventDefault();
+    e.stopPropagation();
     return;
   }
 
@@ -1331,9 +1421,12 @@ $('#cropChip').addEventListener('click', () => { if (isFreeform()) sizePicker.op
 // The button, its narrow-layout twin and the Enter key are one act.
 $('#finalize').addEventListener('click', approve);
 $('#finalizeSmall').addEventListener('click', approve);
-$('#coachGo').addEventListener('click', closeCoach);
-$('#coach').addEventListener('mousedown', (event) => {
-  if (event.target === $('#coach')) closeCoach();
+$('#coachSize').addEventListener('click', openCoachPicker);
+$('#coachConfirm').addEventListener('click', () => {
+  if (!coachChoice || !coachReady) return;
+  applyPickedSize(coachChoice);
+  closeCoach();
+  announce(`${coachTotal} images ready to frame at ${coachChoice.w} by ${coachChoice.h} pixels`);
 });
 $('#modeCrop').addEventListener('click', () => goTo('crop'));
 $('#modeAdjust').addEventListener('click', () => goTo('adjust'));

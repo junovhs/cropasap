@@ -30,9 +30,19 @@ export interface SizePickerOptions {
 }
 
 export interface SizePickerController {
-  open(): void;
+  open(options?: SizePickerOpenOptions): void;
   close(): void;
   isOpen(): boolean;
+}
+
+export interface SizePickerOpenOptions {
+  /** Temporarily render the palette inside another modal or surface. */
+  readonly host?: HTMLElement;
+  /** Control that receives focus when this particular opening closes. */
+  readonly returnFocus?: HTMLElement;
+  /** Omit image-derived choices while its preview is still being prepared. */
+  readonly includeTemplate?: boolean;
+  readonly onClose?: () => void;
 }
 
 const loadRecents = (): string[] => {
@@ -111,6 +121,11 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
   // was a second target for a job the name itself can do: the text is what you
   // want to change, so the text is what you click.
   let renamingId: string | null = null;
+  const home = root.parentNode;
+  const homeNext = root.nextSibling;
+  let returnFocus: HTMLElement = trigger;
+  let afterClose: (() => void) | undefined;
+  let embedded = false;
 
   function commitRename(value: string): void {
     if (!renamingId) return;
@@ -396,13 +411,21 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
     onPick(result);
   }
 
-  function open(): void {
+  function open(openOptions: SizePickerOpenOptions = {}): void {
     onBeforeOpen?.();
+    returnFocus = openOptions.returnFocus ?? trigger;
+    afterClose = openOptions.onClose;
+    if (openOptions.host) {
+      openOptions.host.append(root);
+      root.removeAttribute('role');
+      root.removeAttribute('aria-modal');
+      embedded = true;
+    }
     root.hidden = false;
     naming = null;
     saved = loadSaved();
     pins = loadPinned();
-    template = getTemplate?.() ?? null;
+    template = openOptions.includeTemplate === false ? null : getTemplate?.() ?? null;
     const shapeHint = root.querySelector<HTMLElement>('#shapeHint');
     if (shapeHint) shapeHint.hidden = !template;
     // On a touch screen, focusing the field throws up the keyboard and takes
@@ -422,7 +445,18 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
     naming = null;
     root.classList.remove('open');
     root.hidden = true;
-    trigger.focus();
+    if (embedded && home) {
+      home.insertBefore(root, homeNext);
+      root.setAttribute('role', 'dialog');
+      root.setAttribute('aria-modal', 'true');
+      embedded = false;
+    }
+    const focusTarget = returnFocus;
+    const callback = afterClose;
+    returnFocus = trigger;
+    afterClose = undefined;
+    callback?.();
+    focusTarget.focus();
   }
 
   input.addEventListener('input', () => {
@@ -460,7 +494,7 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
   root.addEventListener('mousedown', (event) => {
     if (event.target === root) close();
   });
-  trigger.addEventListener('click', open);
+  trigger.addEventListener('click', () => open());
 
   window.addEventListener('keydown', (event) => {
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
