@@ -16,6 +16,7 @@
 import { makeZip } from './zip.js';
 import { FORMATS, download, encode, expandName, sanitize, unique } from './export.js';
 import { canvasContext } from './infrastructure/dom.js';
+import { decodeOriginal, sourceDimensions } from './infrastructure/image-decoder.js';
 import type { CropItem, ExportFormat } from './domain/types.js';
 
 export interface ConvertOptions {
@@ -70,7 +71,13 @@ export async function convertOne(
   item: CropItem,
   { format, quality }: Pick<ConvertOptions, 'format' | 'quality'>,
 ): Promise<Blob> {
-  const blob = await encode(surfaceOf(item.image, format), format, quality);
+  const original = await decodeOriginal(item.file);
+  let blob: Blob;
+  try {
+    blob = await encode(surfaceOf(original, format), format, quality);
+  } finally {
+    original.src = '';
+  }
   const { mime, label } = FORMATS[format];
   if (format !== 'png' && blob.type && blob.type !== mime) {
     throw new Error(`This browser cannot write ${label}`);
@@ -95,6 +102,7 @@ export async function convertAll(
 
   for (const [index, item] of items.entries()) {
     const blob = await convertOne(item, options);
+    const source = sourceDimensions(item.image);
     const ext = EXT_BY_MIME[blob.type] ?? FORMATS[options.format].ext;
     files.push({
       name: expandName(options.template, {
@@ -104,8 +112,8 @@ export async function convertAll(
         // The source's own dimensions, because they are what the file will
         // have. {w}x{h} in a Convert filename must not describe a crop target
         // the user is not using.
-        w: item.image.naturalWidth,
-        h: item.image.naturalHeight,
+        w: source.width,
+        h: source.height,
         ext,
         label: FORMATS[options.format].label,
       }),

@@ -5,6 +5,7 @@ import { encodePng } from './png.js';
 import { resample } from './resample.js';
 import { CAN_FILTER, applyAdjustment, filterFor, isNeutral } from './adjust.js';
 import { canvasContext } from './infrastructure/dom.js';
+import { decodeOriginal } from './infrastructure/image-decoder.js';
 import type {
   CropItem,
   ExportFormat,
@@ -42,9 +43,13 @@ export const scaledTarget = (target: OutputTarget, scale: ExportScale = 1): Outp
  * outward to whole pixels because a fractional source rectangle is a resample in
  * itself, and one done by the canvas in the wrong colour space at that.
  */
-function cropPixels(item: CropItem, f: NonNullable<CropItem['frame']>): ImageData | null {
-  const iw = item.image.naturalWidth;
-  const ih = item.image.naturalHeight;
+function cropPixels(
+  item: CropItem,
+  f: NonNullable<CropItem['frame']>,
+  image: HTMLImageElement,
+): ImageData | null {
+  const iw = image.naturalWidth;
+  const ih = image.naturalHeight;
   const x = Math.max(0, Math.floor(f.cx - f.cropW / 2));
   const y = Math.max(0, Math.floor(f.cy - f.cropH / 2));
   const w = Math.min(iw - x, Math.max(1, Math.round(f.cropW)));
@@ -55,7 +60,7 @@ function cropPixels(item: CropItem, f: NonNullable<CropItem['frame']>): ImageDat
   cut.width = w;
   cut.height = h;
   const ctx = canvasContext(cut);
-  ctx.drawImage(item.image, x, y, w, h, 0, 0, w, h);
+  ctx.drawImage(image, x, y, w, h, 0, 0, w, h);
   return ctx.getImageData(0, 0, w, h);
 }
 
@@ -65,12 +70,16 @@ function cropPixels(item: CropItem, f: NonNullable<CropItem['frame']>): ImageDat
  * an upscale, or anything at all going wrong — and the caller falls back to the
  * canvas, which is what shipped before this and is no worse than it was.
  */
-function resampled(item: CropItem, target: OutputTarget): HTMLCanvasElement | null {
+function resampled(
+  item: CropItem,
+  target: OutputTarget,
+  image: HTMLImageElement,
+): HTMLCanvasElement | null {
   const f = item.frame;
   if (!f) return null;
   if (f.cropW < target.w * 1.05 || f.cropH < target.h * 1.05) return null;
   try {
-    const pixels = cropPixels(item, f);
+    const pixels = cropPixels(item, f, image);
     if (!pixels) return null;
     const done = resample(pixels, target.w, target.h);
     const canvas = document.createElement('canvas');
@@ -88,12 +97,13 @@ export function renderItem(
   item: CropItem,
   target: OutputTarget,
   format: ExportFormat,
+  image = item.image,
 ): HTMLCanvasElement {
   const f = item.frame;
   if (!f) throw new Error(`Cannot export ${item.file.name}: no framing is available`);
 
-  const fine = resampled(item, target);
-  let src: CanvasImageSource = fine ?? item.image;
+  const fine = resampled(item, target, image);
+  let src: CanvasImageSource = fine ?? image;
   let sx = fine ? 0 : f.cx - f.cropW / 2;
   let sy = fine ? 0 : f.cy - f.cropH / 2;
   let sw = fine ? target.w : f.cropW;
@@ -233,8 +243,14 @@ export async function buildFiles(
   const files: ExportedFile[] = [];
 
   for (const [index, item] of items.entries()) {
-    const canvas = renderItem(item, out, format);
-    const blob = await encode(canvas, format, quality);
+    const original = await decodeOriginal(item.file);
+    let blob: Blob;
+    try {
+      const canvas = renderItem(item, out, format, original);
+      blob = await encode(canvas, format, quality);
+    } finally {
+      original.src = '';
+    }
     const ext = EXT_BY_MIME[blob.type] ?? FORMATS[format].ext;
     files.push({
       name: expandName(template, {

@@ -9,6 +9,7 @@
 import { FORMATS, DEFAULT_TEMPLATE } from '../export.js';
 import { convertAndDownload, convertOne, readableBytes } from '../convert.js';
 import { requiredElement, requiredElements } from '../infrastructure/dom.js';
+import { sourceDimensions } from '../infrastructure/image-decoder.js';
 import type { AppState, CropItem, ExportFormat } from '../domain/types.js';
 
 // Long enough that dragging the quality slider does not queue an encode per
@@ -72,7 +73,7 @@ export function createConvertPanel({
       sourceLine.textContent = `${items.length} images · ${readableBytes(bytes)}`;
       return;
     }
-    const { naturalWidth: w, naturalHeight: h } = first.image;
+    const { width: w, height: h } = sourceDimensions(first.image);
     const kind = (first.file.type.split('/')[1] ?? 'image').toUpperCase();
     sourceLine.textContent = `${kind} · ${w} × ${h} · ${readableBytes(first.file.size)}`;
   }
