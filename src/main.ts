@@ -275,6 +275,10 @@ function closeCoach(): void {
   coach.classList.remove('open');
   coach.hidden = true;
   canvas.focus();
+  // The automatic Batch explainer owns the foreground until it is dismissed.
+  // Only after its closing frame has painted may the active queue preview be
+  // promoted, so no image preparation can delay this button or its response.
+  requestAnimationFrame(() => promoteActiveImage());
 }
 
 const ROOM_SAID: Readonly<Record<Room, string>> = {
@@ -637,7 +641,7 @@ async function intake(fileList: FileList | readonly File[]): Promise<void> {
   // queried. Entering this way is never silent — the explainer says what the
   // room asks of you, once, because you did not ask to be in it.
   if (room !== 'batch' && items.length > 1) {
-    enterBatchWith(items);
+    enterBatchWith(items, false);
     await endLoading(loading, true);
     openCoach(items.length);
     announce(`${items.length} images loaded. Batch — frame each one, then keep it`);
@@ -674,10 +678,10 @@ let awaitingBatchSize = false;
 
 // Entering Batch is the act of choosing a stack, and until a stack exists there
 // is no room to be in. This is the only path that turns the queue on.
-function enterBatchWith(items: readonly CropItem[]): void {
+function enterBatchWith(items: readonly CropItem[], promote = true): void {
   room = 'batch';
   store.set({ batch: true, items, activeIndex: -1 });
-  activate(0);
+  activate(0, promote);
   syncStageChrome();
   syncUI();
 }
@@ -699,7 +703,27 @@ let activationGeneration = 0;
 const displayImage = (item: CropItem): HTMLImageElement =>
   activeEditingImage && activeEditingItemId === item.id ? activeEditingImage : item.image;
 
-function activate(index: number): void {
+function promoteActiveImage(generation = activationGeneration): void {
+  const item = activeItem();
+  if (!item) return;
+  const sourceSize = sourceDimensions(item.image);
+  const editingSize = previewDimensions(sourceSize.width, sourceSize.height, EDIT_PREVIEW_MAX_EDGE);
+  if (item.image.naturalWidth >= editingSize.width && item.image.naturalHeight >= editingSize.height) return;
+  void decodeEditingImage(item.file).then((editing) => {
+    const current = activeItem();
+    if (generation !== activationGeneration || current?.id !== item.id) {
+      editing.src = '';
+      return;
+    }
+    activeEditingImage = editing;
+    activeEditingItemId = item.id;
+    view.setImage(editing, current.frame);
+  }).catch(() => {
+    // The queue-sized preview is already usable; promotion is an enhancement.
+  });
+}
+
+function activate(index: number, promote = true): void {
   const generation = ++activationGeneration;
   if (activeEditingImage) activeEditingImage.src = '';
   activeEditingImage = null;
@@ -723,21 +747,7 @@ function activate(index: number): void {
   strip.scrollToActive(store.get());
   canvas.focus();
 
-  const sourceSize = sourceDimensions(item.image);
-  const editingSize = previewDimensions(sourceSize.width, sourceSize.height, EDIT_PREVIEW_MAX_EDGE);
-  if (item.image.naturalWidth >= editingSize.width && item.image.naturalHeight >= editingSize.height) return;
-  void decodeEditingImage(item.file).then((editing) => {
-    const current = activeItem();
-    if (generation !== activationGeneration || current?.id !== item.id) {
-      editing.src = '';
-      return;
-    }
-    activeEditingImage = editing;
-    activeEditingItemId = item.id;
-    view.setImage(editing, current.frame);
-  }).catch(() => {
-    // The queue-sized preview is already usable; promotion is an enhancement.
-  });
+  if (promote) promoteActiveImage(generation);
 }
 
 // ---- approval --------------------------------------------------------------

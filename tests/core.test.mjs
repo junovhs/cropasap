@@ -5,7 +5,10 @@ import { acceptFrame, targetKey, useWholeImage } from '../dist/src/application/f
 import { expandName } from '../dist/src/export.js';
 import { ratioLabel, search, wholeImageInside } from '../dist/src/search.js';
 import { createAppStore } from '../dist/src/state.js';
-import { previewDimensions } from '../dist/src/infrastructure/image-decoder.js';
+import {
+  encodedImageDimensions,
+  previewDimensions,
+} from '../dist/src/infrastructure/image-decoder.js';
 import { makeZip } from '../dist/src/zip.js';
 
 const adjustment = Object.freeze({ exposure: 0, contrast: 0, saturation: 0 });
@@ -14,6 +17,18 @@ test('huge editing previews preserve aspect while bounding decoded pixels', () =
   assert.deepEqual(previewDimensions(30_000, 8_209), { width: 4_096, height: 1_121 });
   assert.deepEqual(previewDimensions(30_000, 8_209, 1_024), { width: 1_024, height: 280 });
   assert.deepEqual(previewDimensions(2_000, 1_000), { width: 2_000, height: 1_000 });
+});
+
+test('large JPEG and PNG dimensions are read without decoding pixels', () => {
+  const jpeg = new Uint8Array(15);
+  jpeg.set([0xff, 0xd8, 0xff, 0xc0, 0x00, 0x0b, 0x08, 0x20, 0x11, 0x75, 0x30]);
+  assert.deepEqual(encodedImageDimensions(jpeg), { width: 30_000, height: 8_209 });
+
+  const png = new Uint8Array(24);
+  png.set([137, 80, 78, 71, 13, 10, 26, 10]);
+  new DataView(png.buffer).setUint32(16, 30_000);
+  new DataView(png.buffer).setUint32(20, 8_209);
+  assert.deepEqual(encodedImageDimensions(png), { width: 30_000, height: 8_209 });
 });
 
 function fakeItem(overrides = {}) {
