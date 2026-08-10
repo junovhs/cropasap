@@ -35,6 +35,13 @@ export interface SizePickerController {
   isOpen(): boolean;
 }
 
+/**
+ * Per-opening placement for the size palette.
+ *
+ * The default remains the global modal. A caller may temporarily host the same
+ * palette inside another surface, control focus restoration, omit an unfinished
+ * image template, and restore its surrounding UI when the palette closes.
+ */
 export interface SizePickerOpenOptions {
   /** Temporarily render the palette inside another modal or surface. */
   readonly host?: HTMLElement;
