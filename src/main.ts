@@ -14,7 +14,14 @@ import {
   FREEFORM_LABEL, commitFreeform, enterFreeform, exitFreeform, releaseFreeform,
 } from './application/freeform.js';
 import { tickFromZoom, zoomFromTick, type ZoomRange } from './application/zoom.js';
-import { decodeImage } from './infrastructure/image-decoder.js';
+import {
+  decodeEditingImage,
+  decodeImage,
+  EDIT_PREVIEW_MAX_EDGE,
+  previewDimensions,
+  QUEUE_PREVIEW_MAX_EDGE,
+  sourceDimensions,
+} from './infrastructure/image-decoder.js';
 import { requiredElement, requiredElements } from './infrastructure/dom.js';
 import { loadPinned, pinId, removePinned } from './pinned.js';
 import { createHistory } from './history.js';
@@ -153,8 +160,9 @@ function updateReadout(framing: Framing | null): void {
 // machine facts about the source, so both are set in mono and neither changes
 // as you crop — the crop's own numbers live in the readout on the stage.
 function showFileIdentity(item: CropItem): void {
+  const source = sourceDimensions(item.image);
   $('#filename').textContent = item.file.name;
-  $('#fileDims').textContent = `${item.image.naturalWidth} × ${item.image.naturalHeight}`;
+  $('#fileDims').textContent = `${source.width} × ${source.height}`;
 }
 
 // ---- rooms -----------------------------------------------------------------
@@ -493,12 +501,20 @@ async function intake(fileList: FileList | readonly File[]): Promise<void> {
     showNotice('Freeform turned off — a stack needs one output size.');
   }
 
-  const decoded = await Promise.allSettled(files.map(decodeImage));
+  // Decode one source at a time. Each large original is reduced to its bounded
+  // editing preview before the next begins, so a 50-image drop never becomes a
+  // 50-way decode storm or keeps fifty full pixel buffers resident.
   let items: CropItem[] = [];
-  decoded.forEach((result, index) => {
-    const file = files[index];
-    if (file && result.status === 'fulfilled') items.push(createItem(file, result.value));
-  });
+  for (const file of files) {
+    try {
+      const maxEdge = files.length > 1 ? QUEUE_PREVIEW_MAX_EDGE : EDIT_PREVIEW_MAX_EDGE;
+      items.push(createItem(file, await decodeImage(file, maxEdge)));
+    } catch {
+      // Keep accepting the rest of a mixed drop; the existing empty-result
+      // message below covers a queue in which nothing could be decoded.
+    }
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  }
   if (!items.length) { announce('None of those images could be opened'); return; }
 
   // Nobody has said what size they need yet, and the image itself is the best
@@ -506,7 +522,10 @@ async function intake(fileList: FileList | readonly File[]): Promise<void> {
   // meant every unasked-for arrival was cropped before it was even looked at.
   // The size stays provisional, so choosing a real one is still one click away.
   const first = items[0];
-  if (isFreeform() && first) applyFreeformSize(first.image.naturalWidth, first.image.naturalHeight);
+  if (isFreeform() && first) {
+    const source = sourceDimensions(first.image);
+    applyFreeformSize(source.width, source.height);
+  }
   else if (!sizeChosen) adoptImageSize(items[0]);
 
   const s = store.get();
@@ -577,14 +596,26 @@ function enterBatchWith(items: readonly CropItem[]): void {
 
 // Take the output size from the picture while the size is still provisional.
 function adoptImageSize(item: CropItem): void {
+  const source = sourceDimensions(item.image);
   applyTarget({
-    w: item.image.naturalWidth,
-    h: item.image.naturalHeight,
+    w: source.width,
+    h: source.height,
     name: 'This image',
-  });
+  }, false);
 }
 
+let activeEditingImage: HTMLImageElement | null = null;
+let activeEditingItemId: string | null = null;
+let activationGeneration = 0;
+
+const displayImage = (item: CropItem): HTMLImageElement =>
+  activeEditingImage && activeEditingItemId === item.id ? activeEditingImage : item.image;
+
 function activate(index: number): void {
+  const generation = ++activationGeneration;
+  if (activeEditingImage) activeEditingImage.src = '';
+  activeEditingImage = null;
+  activeEditingItemId = null;
   const state = store.get();
   const source = state.items[index];
   if (!source) return;
@@ -603,6 +634,22 @@ function activate(index: number): void {
   syncUI();
   strip.scrollToActive(store.get());
   canvas.focus();
+
+  const sourceSize = sourceDimensions(item.image);
+  const editingSize = previewDimensions(sourceSize.width, sourceSize.height, EDIT_PREVIEW_MAX_EDGE);
+  if (item.image.naturalWidth >= editingSize.width && item.image.naturalHeight >= editingSize.height) return;
+  void decodeEditingImage(item.file).then((editing) => {
+    const current = activeItem();
+    if (generation !== activationGeneration || current?.id !== item.id) {
+      editing.src = '';
+      return;
+    }
+    activeEditingImage = editing;
+    activeEditingItemId = item.id;
+    view.setImage(editing, current.frame);
+  }).catch(() => {
+    // The queue-sized preview is already usable; promotion is an enhancement.
+  });
 }
 
 // ---- approval --------------------------------------------------------------
@@ -770,23 +817,26 @@ function markActivePin(): void {
 // Everything the screen owes a new output size. The store move differs by route
 // — a preset refits every crop, Freeform states one outright — but what has to
 // be redrawn afterwards is the same either way.
-function showAppliedTarget(target: OutputTarget): void {
-  view.setTarget(target.w, target.h);
+function showAppliedTarget(target: OutputTarget, refreshActive = true): void {
+  // An inferred size belongs to the image currently arriving. Put its frame in
+  // the right geometry before the next paint instead of animating there from
+  // the previous/default target for several seconds.
+  view.setTarget(target.w, target.h, !refreshActive);
   syncFitChrome();
   showTarget(target);
   markActivePin();
 
   // Every queued crop follows the new shape immediately, so the filmstrip is
   // always a truthful preview of what would be exported right now.
-  const item = activeItem();
+  const item = refreshActive ? activeItem() : null;
   if (item) {
-    view.setImage(item.image, item.frame);
+    view.setImage(displayImage(item), item.frame);
     updateReadout(view.getFraming());
   }
   syncUI();
 }
 
-function applyTarget({ w, h, name }: TargetSelection): void {
+function applyTarget({ w, h, name }: TargetSelection, refreshActive = true): void {
   if (!(w > 0 && h > 0)) return;
   const state = store.transact((current) => {
     const target = { w, h, label: name };
@@ -796,7 +846,7 @@ function applyTarget({ w, h, name }: TargetSelection): void {
     return { ...base, target, items: base.items.map((item) => fitFrameToTarget(item, target)) };
   });
   view.setFreeform(false);
-  showAppliedTarget(state.target);
+  showAppliedTarget(state.target, refreshActive);
   syncFreeformChrome();
   announce(`${name}, ${w} by ${h} pixels`);
 }
@@ -878,7 +928,9 @@ const sizePicker = createSizePicker({
   // than only in the half-second the file was arriving.
   getTemplate: () => {
     const item = activeItem();
-    return item ? { w: item.image.naturalWidth, h: item.image.naturalHeight } : null;
+    if (!item) return null;
+    const source = sourceDimensions(item.image);
+    return { w: source.width, h: source.height };
   },
   onPinsChange: renderPins,
   // Clicking a suspended preset is one act, not two: it means "I want a size
@@ -903,7 +955,7 @@ const sizePicker = createSizePicker({
       if (item) {
         const updated = useWholeImage(item, { w: r.w, h: r.h, label: r.name });
         store.updateItem(item.id, () => updated);
-        view.setImage(updated.image, updated.frame);
+        view.setImage(displayImage(updated), updated.frame);
       }
       announce(`Whole image at ${r.w} by ${r.h} pixels. Nothing cropped`);
     }
@@ -941,9 +993,15 @@ function showState(state: AppState): void {
 
   const item = state.items[state.activeIndex] ?? null;
   if (item) {
+    if (activeEditingItemId && activeEditingItemId !== item.id) {
+      activationGeneration += 1;
+      if (activeEditingImage) activeEditingImage.src = '';
+      activeEditingImage = null;
+      activeEditingItemId = null;
+    }
     showFileIdentity(item);
     setChromeVisible(true);
-    view.setImage(item.image, item.frame);
+    view.setImage(displayImage(item), item.frame);
     showAdjust(item);
     updateReadout(view.getFraming());
   } else {
@@ -1152,7 +1210,15 @@ document.addEventListener('keydown', (e) => {
 
 // The filmstrip appearing changes the stage height, so watch the element
 // itself rather than the window.
-new ResizeObserver(() => { view.resize(); syncFitChrome(); }).observe(stage);
+let resizeFrame = 0;
+new ResizeObserver(() => {
+  if (resizeFrame) return;
+  resizeFrame = requestAnimationFrame(() => {
+    resizeFrame = 0;
+    view.resize();
+    syncFitChrome();
+  });
+}).observe(stage);
 
 for (const option of $$<HTMLButtonElement>('#viewMode [role="radio"]')) {
   option.addEventListener('click', () => setViewMode((option.dataset.view ?? 'true') as FrameView));

@@ -2,6 +2,7 @@
 
 import { CAN_FILTER, applyAdjustment, filterFor, isNeutral } from './adjust.js';
 import { canvasContext } from './infrastructure/dom.js';
+import { sourceDimensions } from './infrastructure/image-decoder.js';
 import type { AppState, CropItem, OutputTarget } from './domain/types.js';
 
 const THUMB_H = 56;
@@ -80,13 +81,16 @@ export function createFilmstrip(options: FilmstripOptions): FilmstripController 
     ctx.clearRect(0, 0, w, h);
     const frame = item.frame;
     if (!frame) return;
+    const source = sourceDimensions(item.image);
+    const xScale = item.image.naturalWidth / source.width;
+    const yScale = item.image.naturalHeight / source.height;
     ctx.filter = filterFor(item.adjust);
     ctx.drawImage(
       item.image,
-      frame.cx - frame.cropW / 2,
-      frame.cy - frame.cropH / 2,
-      frame.cropW,
-      frame.cropH,
+      (frame.cx - frame.cropW / 2) * xScale,
+      (frame.cy - frame.cropH / 2) * yScale,
+      frame.cropW * xScale,
+      frame.cropH * yScale,
       0,
       0,
       w,

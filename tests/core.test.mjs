@@ -5,9 +5,16 @@ import { acceptFrame, targetKey, useWholeImage } from '../dist/src/application/f
 import { expandName } from '../dist/src/export.js';
 import { ratioLabel, search, wholeImageInside } from '../dist/src/search.js';
 import { createAppStore } from '../dist/src/state.js';
+import { previewDimensions } from '../dist/src/infrastructure/image-decoder.js';
 import { makeZip } from '../dist/src/zip.js';
 
 const adjustment = Object.freeze({ exposure: 0, contrast: 0, saturation: 0 });
+
+test('huge editing previews preserve aspect while bounding decoded pixels', () => {
+  assert.deepEqual(previewDimensions(30_000, 8_209), { width: 4_096, height: 1_121 });
+  assert.deepEqual(previewDimensions(30_000, 8_209, 1_024), { width: 1_024, height: 280 });
+  assert.deepEqual(previewDimensions(2_000, 1_000), { width: 2_000, height: 1_000 });
+});
 
 function fakeItem(overrides = {}) {
   return {

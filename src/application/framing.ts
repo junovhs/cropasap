@@ -1,19 +1,52 @@
-import { autoFrame, refit } from '../autoframe.js';
+import { autoFrame } from '../autoframe.js';
+import { sourceDimensions } from '../infrastructure/image-decoder.js';
 import type { CropItem, Framing, OutputTarget } from '../domain/types.js';
 
 export const targetKey = (target: OutputTarget): string => `${target.w}x${target.h}`;
 
-export const wholeFrame = (item: CropItem): Framing => ({
-  cx: item.image.naturalWidth / 2,
-  cy: item.image.naturalHeight / 2,
-  cropW: item.image.naturalWidth,
-  cropH: item.image.naturalHeight,
-});
+export const wholeFrame = (item: CropItem): Framing => {
+  const source = sourceDimensions(item.image);
+  return {
+    cx: source.width / 2,
+    cy: source.height / 2,
+    cropW: source.width,
+    cropH: source.height,
+  };
+};
+
+function refitSource(item: CropItem, framing: Framing | null, aspect: number): Framing {
+  const source = sourceDimensions(item.image);
+  if (!framing) return suggestedSourceFrame(item, aspect);
+  let cropW = framing.cropW;
+  let cropH = cropW / aspect;
+  const fitting = Math.min(1, source.width / cropW, source.height / cropH);
+  cropW *= fitting;
+  cropH *= fitting;
+  return {
+    cropW,
+    cropH,
+    cx: Math.min(Math.max(framing.cx, cropW / 2), source.width - cropW / 2),
+    cy: Math.min(Math.max(framing.cy, cropH / 2), source.height - cropH / 2),
+  };
+}
+
+function suggestedSourceFrame(item: CropItem, aspect: number): Framing {
+  const preview = autoFrame(item.image, aspect);
+  const source = sourceDimensions(item.image);
+  const xScale = source.width / item.image.naturalWidth;
+  const yScale = source.height / item.image.naturalHeight;
+  return refitSource(item, {
+    cx: preview.cx * xScale,
+    cy: preview.cy * yScale,
+    cropW: preview.cropW * xScale,
+    cropH: preview.cropH * yScale,
+  }, aspect);
+}
 
 export function suggestFrame(item: CropItem, target: OutputTarget): CropItem {
   return {
     ...item,
-    frame: autoFrame(item.image, target.w / target.h),
+    frame: suggestedSourceFrame(item, target.w / target.h),
     framedFor: targetKey(target),
     auto: true,
   };
@@ -24,7 +57,7 @@ export function fitFrameToTarget(item: CropItem, target: OutputTarget): CropItem
   if (item.auto) return suggestFrame(item, target);
   return {
     ...item,
-    frame: refit(item.image, item.frame, target.w / target.h),
+    frame: refitSource(item, item.frame, target.w / target.h),
     framedFor: targetKey(target),
   };
 }

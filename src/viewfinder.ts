@@ -17,6 +17,7 @@ import { resizeFree } from './application/freeform.js';
 import { frameFit, type FrameView } from './application/frame-view.js';
 import { handleAt, type FrameHandle } from './application/handles.js';
 import { canvasContext } from './infrastructure/dom.js';
+import { sourceDimensions } from './infrastructure/image-decoder.js';
 import type { Adjustment, Framing } from './domain/types.js';
 
 const GHOST_IDLE = 0.12;      // what you keep seeing of the discarded image
@@ -76,7 +77,7 @@ export interface ViewfinderOptions {
 export interface ViewfinderController {
   setImage(image: HTMLImageElement | null, framing?: Framing | null): void;
   setAdjust(adjustment: Adjustment): void;
-  setTarget(w: number, h: number): void;
+  setTarget(w: number, h: number, immediate?: boolean): void;
   /** Unlock the frame's aspect. Everything else about the gesture is unchanged. */
   setFreeform(on: boolean): void;
   setFrameView(view: FrameView): void;
@@ -176,11 +177,12 @@ export function createViewfinder(
 
   function imageRect(): FrameRect {
     if (!image) return { x: 0, y: 0, w: 0, h: 0 };
+    const source = sourceDimensions(image);
     return {
       x: tx.v,
       y: ty.v,
-      w: image.naturalWidth * scale.v,
-      h: image.naturalHeight * scale.v,
+      w: source.width * scale.v,
+      h: source.height * scale.v,
     };
   }
 
@@ -217,17 +219,19 @@ export function createViewfinder(
   // for every zoom: the frame is never allowed to contain empty space.
   function minScale(): number {
     if (!image) return 1;
-    return Math.max(frameW.v / image.naturalWidth, frameH.v / image.naturalHeight);
+    const source = sourceDimensions(image);
+    return Math.max(frameW.v / source.width, frameH.v / source.height);
   }
 
   function bounds(): { readonly x: readonly [number, number]; readonly y: readonly [number, number] } {
     const current = image;
     if (!current) return { x: [0, 0], y: [0, 0] };
+    const source = sourceDimensions(current);
     const f = frameRect();
     const s = scale.v;
     return {
-      x: [f.x + f.w - current.naturalWidth * s, f.x],
-      y: [f.y + f.h - current.naturalHeight * s, f.y],
+      x: [f.x + f.w - source.width * s, f.x],
+      y: [f.y + f.h - source.height * s, f.y],
     };
   }
 
@@ -346,7 +350,7 @@ export function createViewfinder(
   function applyFraming(framing?: Framing | null): void {
     if (!image) return;
     const f = frameRect();
-    const iw = image.naturalWidth, ih = image.naturalHeight;
+    const { width: iw, height: ih } = sourceDimensions(image);
     // Re-fit the stored crop to the current aspect, keeping its centre. The crop
     // is never allowed out of the picture: a rectangle that reaches past the
     // edge is not a crop of anything.
@@ -379,7 +383,7 @@ export function createViewfinder(
     if (!image || !adjust) return;
     if (isNeutral(adjust)) { baked = null; loop.kick(); return; }
 
-    const iw = image.naturalWidth, ih = image.naturalHeight;
+    const { width: iw, height: ih } = sourceDimensions(image);
     const shrink = Math.min(1, BAKE_MAX_PX / Math.max(iw, ih));
     const w = Math.max(1, Math.round(iw * shrink));
     const h = Math.max(1, Math.round(ih * shrink));
@@ -411,8 +415,9 @@ export function createViewfinder(
     ctx.clearRect(0, 0, vw, vh);
     if (!image) return;
 
-    const w = image.naturalWidth * scale.v;
-    const h = image.naturalHeight * scale.v;
+    const source = sourceDimensions(image);
+    const w = source.width * scale.v;
+    const h = source.height * scale.v;
     const f = frameRect();
     // Whichever carries the adjustment: the filter below, or a copy that has it
     // painted in already. Both are drawn to the same rectangle, so the rest of
@@ -587,7 +592,10 @@ export function createViewfinder(
     // wheel/pinch/slider zoom. At 400%, for example, the box may shrink by only
     // another half before it reaches the shared 800% maximum.
     const currentMinScale = image
-      ? Math.max(start.w / image.naturalWidth, start.h / image.naturalHeight)
+      ? (() => {
+          const source = sourceDimensions(image);
+          return Math.max(start.w / source.width, start.h / source.height);
+        })()
       : 1;
     const currentZoom = currentMinScale > 0 ? scale.v / currentMinScale : 1;
     const zoomMinW = start.w * currentZoom / MAX_ZOOM;
@@ -828,9 +836,13 @@ export function createViewfinder(
     // measured relative to the frame rect, which depends on vw/vh.
     const framing = image ? readFraming() : null;
     const r = stage.getBoundingClientRect();
-    dpr = Math.max(1, devicePixelRatio || 1);
-    vw = Math.max(1, Math.round(r.width));
-    vh = Math.max(1, Math.round(r.height));
+    const nextDpr = Math.max(1, devicePixelRatio || 1);
+    const nextVw = Math.max(1, Math.round(r.width));
+    const nextVh = Math.max(1, Math.round(r.height));
+    if (nextDpr === dpr && nextVw === vw && nextVh === vh) return;
+    dpr = nextDpr;
+    vw = nextVw;
+    vh = nextVh;
     canvas.width = Math.round(vw * dpr);
     canvas.height = Math.round(vh * dpr);
     layoutFrame(true);
@@ -893,12 +905,12 @@ export function createViewfinder(
       }
       loop.kick();
     },
-    setTarget(w: number, h: number): void {
+    setTarget(w: number, h: number, immediate = false): void {
       targetW = w;
       targetH = h;
       aspect = w / h;
-      morph = image ? readFraming() : null;
-      layoutFrame(false);
+      morph = image && !immediate ? readFraming() : null;
+      layoutFrame(immediate || !image);
       loop.kick();
     },
     // The ratio lock, and nothing else. The frame stays where it is: whatever
@@ -939,7 +951,10 @@ export function createViewfinder(
       if (!image) return 1;
       const held = dragging && dragging.handle !== 'pan' ? dragging.frame : null;
       const min = held
-        ? Math.max(held.w / image.naturalWidth, held.h / image.naturalHeight)
+        ? (() => {
+            const source = sourceDimensions(image);
+            return Math.max(held.w / source.width, held.h / source.height);
+          })()
         : minScale();
       return min > 0 ? scale.v / min : 1;
     },
