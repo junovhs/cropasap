@@ -58,6 +58,8 @@ export function createExportPanel({
   const exportNote = $<HTMLElement>('#exportNote');
   const templateInput = $<HTMLInputElement>('#template');
   const qualityInput = $<HTMLInputElement>('#qualityInput');
+  const widthInput = $<HTMLInputElement>('#exportWidth');
+  const heightInput = $<HTMLInputElement>('#exportHeight');
 
   function composeTemplate(): string {
     const parts: string[] = [];
@@ -105,6 +107,8 @@ export function createExportPanel({
     for (const button of $$<HTMLButtonElement>('#scaleGroup button')) {
       button.setAttribute('aria-checked', String(Number(button.dataset.scale ?? 0) === options.scale));
     }
+    if (document.activeElement !== widthInput) widthInput.value = String(out.w);
+    if (document.activeElement !== heightInput) heightInput.value = String(out.h);
 
     const framing = getFraming();
     const stretched = framing
@@ -146,6 +150,20 @@ export function createExportPanel({
     announce(`${scale} times. Exports at ${w} by ${h} pixels`);
   }
 
+  function setPixelDimension(axis: 'width' | 'height', value: string): void {
+    const pixels = Math.round(Number(value));
+    if (!Number.isFinite(pixels) || pixels < 1) {
+      syncScale();
+      return;
+    }
+    const target = getState().target;
+    const scale = pixels / (axis === 'width' ? target.w : target.h);
+    if (scale !== options.scale) options.scale = scale;
+    syncScale();
+    const { w, h } = scaledTarget(target, scale);
+    announce(`Exports at ${w} by ${h} pixels`);
+  }
+
   for (const button of $$<HTMLButtonElement>('#formatGroup button')) {
     button.addEventListener('click', () => {
       const format = button.dataset.format as ExportFormat | undefined;
@@ -159,6 +177,9 @@ export function createExportPanel({
       if (scale === 1 || scale === 2 || scale === 4) setScale(scale);
     });
   }
+
+  widthInput.addEventListener('change', () => setPixelDimension('width', widthInput.value));
+  heightInput.addEventListener('change', () => setPixelDimension('height', heightInput.value));
 
   qualityInput.addEventListener('input', () => {
     options.quality = Number(qualityInput.value) / 100;

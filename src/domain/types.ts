@@ -80,7 +80,8 @@ export interface SizeResult extends Dimensions {
 }
 
 export type ExportFormat = 'png' | 'jpeg' | 'webp';
-export type ExportScale = 1 | 2 | 4;
+/** Multiplier applied to the selected output shape. */
+export type ExportScale = number;
 
 export interface ExportOptions {
   readonly format: ExportFormat;

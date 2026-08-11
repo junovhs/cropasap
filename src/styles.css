@@ -2710,3 +2710,43 @@ button.picker-ratio:hover:not(:disabled) { border-color: var(--accent); backgrou
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: .001ms !important; animation-duration: .001ms !important; }
 }
+
+/* A typed width or height is another quick-export multiplier. The paired value
+   stays visible so the preserved aspect ratio is obvious before downloading. */
+.manual-size-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: end;
+  gap: 8px;
+  margin-top: 10px;
+}
+.manual-size-row label {
+  display: grid;
+  gap: 4px;
+  color: var(--ink-3);
+  font-size: 11px;
+}
+.manual-size-row label span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--ink-4);
+  font-family: var(--font-mono);
+}
+.manual-size-row input {
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  padding: 0 7px;
+  border: 1px solid var(--edge);
+  border-radius: 7px;
+  background: oklch(1 0 0 / 0.72);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.manual-size-lock { padding-bottom: 8px; color: var(--ink-4); }
+
+@media (max-width: 900px) {
+  .manual-size-row input { font-size: 16px; }
+}
