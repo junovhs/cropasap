@@ -1155,6 +1155,11 @@ exportPanel = createExportPanel({
   getFraming: () => view.hasImage() ? view.getFraming() : null,
   announce,
   onScaleChange: updateReadout,
+  onSizeChange: (w, h) => {
+    sizeChosen = true;
+    applyTarget({ w, h, name: 'Custom size' });
+    syncSizeConfidence();
+  },
 });
 
 convertPanel = createConvertPanel({

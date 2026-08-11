@@ -5,7 +5,7 @@ import {
   exportAll,
   scaledTarget,
 } from '../export.js';
-import { exportItems } from '../application/freeform.js';
+import { FREEFORM_LABEL, exportItems } from '../application/freeform.js';
 import { requiredElement, requiredElements } from '../infrastructure/dom.js';
 import type {
   AppState,
@@ -25,6 +25,7 @@ export interface ExportPanelOptions {
   readonly getFraming: () => Framing | null;
   readonly announce: (message: string) => void;
   readonly onScaleChange?: (framing: Framing | null) => void;
+  readonly onSizeChange?: (width: number, height: number) => void;
 }
 
 export interface ExportPanelController {
@@ -38,6 +39,7 @@ export function createExportPanel({
   getFraming,
   announce,
   onScaleChange,
+  onSizeChange,
 }: ExportPanelOptions): ExportPanelController {
   const $ = <T extends Element = HTMLElement>(selector: string): T => requiredElement<T>(selector, root);
   const $$ = <T extends Element = HTMLElement>(selector: string): T[] => requiredElements<T>(selector, root);
@@ -60,6 +62,10 @@ export function createExportPanel({
   const qualityInput = $<HTMLInputElement>('#qualityInput');
   const widthInput = $<HTMLInputElement>('#exportWidth');
   const heightInput = $<HTMLInputElement>('#exportHeight');
+  const manualSizeWarning = $<HTMLElement>('#manualSizeWarning');
+  let overriddenPreset: string | null = null;
+  let manualRatio: number | null = null;
+  let lastTargetLabel: string | null = null;
 
   function composeTemplate(): string {
     const parts: string[] = [];
@@ -104,11 +110,20 @@ export function createExportPanel({
   function syncScale(): void {
     const { target } = getState();
     const out = scaledTarget(target, options.scale);
+    if (target.label !== 'Custom size' && lastTargetLabel === 'Custom size') {
+      overriddenPreset = null;
+      manualRatio = null;
+    }
+    lastTargetLabel = target.label;
     for (const button of $$<HTMLButtonElement>('#scaleGroup button')) {
       button.setAttribute('aria-checked', String(Number(button.dataset.scale ?? 0) === options.scale));
     }
     if (document.activeElement !== widthInput) widthInput.value = String(out.w);
     if (document.activeElement !== heightInput) heightInput.value = String(out.h);
+    manualSizeWarning.hidden = !overriddenPreset;
+    manualSizeWarning.textContent = overriddenPreset
+      ? `This is not the ${overriddenPreset} preset size anymore.`
+      : '';
 
     const framing = getFraming();
     const stretched = framing
@@ -157,11 +172,24 @@ export function createExportPanel({
       return;
     }
     const target = getState().target;
+    if (target.label !== 'Custom size') {
+      if (target.label !== FREEFORM_LABEL) overriddenPreset = target.label;
+      manualRatio = target.w / target.h;
+    }
+    const ratio = manualRatio ?? target.w / target.h;
+    manualRatio = ratio;
+    const out = axis === 'width'
+      ? { ...target, w: pixels, h: Math.max(1, Math.round(pixels / ratio)) }
+      : { ...target, w: Math.max(1, Math.round(pixels * ratio)), h: pixels };
+    if (onSizeChange) {
+      options.scale = 1;
+      onSizeChange(out.w, out.h);
+      return;
+    }
     const scale = pixels / (axis === 'width' ? target.w : target.h);
     if (scale !== options.scale) options.scale = scale;
     syncScale();
-    const { w, h } = scaledTarget(target, scale);
-    announce(`Exports at ${w} by ${h} pixels`);
+    announce(`Exports at ${out.w} by ${out.h} pixels`);
   }
 
   for (const button of $$<HTMLButtonElement>('#formatGroup button')) {
@@ -178,8 +206,8 @@ export function createExportPanel({
     });
   }
 
-  widthInput.addEventListener('change', () => setPixelDimension('width', widthInput.value));
-  heightInput.addEventListener('change', () => setPixelDimension('height', heightInput.value));
+  widthInput.addEventListener('input', () => setPixelDimension('width', widthInput.value));
+  heightInput.addEventListener('input', () => setPixelDimension('height', heightInput.value));
 
   qualityInput.addEventListener('input', () => {
     options.quality = Number(qualityInput.value) / 100;
