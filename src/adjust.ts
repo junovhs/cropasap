@@ -131,6 +131,13 @@ export interface LookUniforms {
   readonly highlightProtect: number;
 }
 
+/**
+ * Turn slider positions into the numbers the look is actually made of, once,
+ * for whichever renderer is asking — the JavaScript loop below or the shader in
+ * `preview-gl.ts`. `scale` is how many rendered pixels one source pixel became,
+ * so that everything with a radius stays the size it is in the photograph
+ * rather than the size it is in this particular buffer.
+ */
 export function lookUniforms(
   adjustment: Adjustment | null | undefined,
   scale = 1,
@@ -279,6 +286,9 @@ export function applyAdjustment(
     const sy = Math.max(0, Math.min(height - 1, y));
     return source[(sy * width + sx) * 4 + component] ?? 0;
   };
+  // Brightness of a neighbour, edge-clamped and read from the untouched copy:
+  // clarity and sharpening compare a pixel with its surroundings, and they must
+  // all be comparing the same picture rather than a half-adjusted one.
   const sampleLuma = (x: number, y: number): number =>
     (LUMA_R * sample(x, y, 0) + LUMA_G * sample(x, y, 1) + LUMA_B * sample(x, y, 2)) / 255;
 

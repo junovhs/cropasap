@@ -155,6 +155,7 @@ void main() {
   gl_FragColor = vec4(clamp(c, 0.0, 1.0), mid.a);
 }`;
 
+/** One photograph's worth of GPU state, kept alive between frames. */
 export interface AdjustPreview {
   /**
    * The photograph with the look on it, ready to be drawn wherever the original
@@ -275,9 +276,16 @@ export function createAdjustPreview(): AdjustPreview | null {
   let glowW = 0, glowH = 0;
   let dead = false;
 
+  /** Where a named uniform lives in a program; `null` if the compiler dropped it. */
   const uniform = (program: WebGLProgram, name: string): WebGLUniformLocation | null =>
     gl.getUniformLocation(program, name);
 
+  /**
+   * Put a photograph on the GPU, shrunk to the preview cap if it is larger, and
+   * size the glow buffers to match. Done once per photograph rather than once
+   * per frame: uploading a twenty-megapixel texture is the expensive part, and
+   * moving a slider does not change the picture underneath it.
+   */
   function upload(image: HTMLImageElement): boolean {
     const naturalW = image.naturalWidth || image.width;
     const naturalH = image.naturalHeight || image.height;
@@ -321,6 +329,7 @@ export function createAdjustPreview(): AdjustPreview | null {
     return true;
   }
 
+  /** Draw the full-screen triangle through one program into one target. */
   function pass(program: WebGLProgram, into: WebGLFramebuffer | null, w: number, h: number): void {
     gl.bindFramebuffer(gl.FRAMEBUFFER, into);
     gl.viewport(0, 0, w, h);
@@ -328,6 +337,11 @@ export function createAdjustPreview(): AdjustPreview | null {
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
 
+  /**
+   * The light that spills: the bright parts of the picture, blurred, left in
+   * `glowA` for the look pass to add back as bloom (white) and halation (red).
+   * Both are the same spill seen through different glass, so it is built once.
+   */
   function renderGlow(): void {
     if (!glowA || !glowB) return;
     gl.activeTexture(gl.TEXTURE0);
