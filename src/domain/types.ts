@@ -14,7 +14,14 @@ export interface Framing {
   readonly cropH: number;
 }
 
-export type AdjustmentKey = 'exposure' | 'contrast' | 'saturation';
+export type AdjustmentKey =
+  | 'exposure' | 'highlights' | 'shadows' | 'whites' | 'blacks'
+  | 'contrast' | 'curve' | 'blackLift' | 'highlightKnee'
+  | 'temperature' | 'tint' | 'vibrance' | 'saturation'
+  | 'shadowCool' | 'highlightWarm'
+  | 'clarity' | 'bloom' | 'halation' | 'vignette' | 'aberration'
+  | 'grainAmount' | 'grainSize' | 'grainRoughness' | 'grainColor'
+  | 'highlightProtect';
 export type Adjustment = Record<AdjustmentKey, number>;
 
 export interface CropItem {

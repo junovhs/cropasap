@@ -1307,14 +1307,10 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
    this takes the corner the crop readouts vacate. */
 
 .adjust {
-  position: absolute; left: 18px; bottom: 18px;
-  width: min(330px, calc(100% - 36px));
-  padding: 18px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  background: oklch(1 0 0 / 0.94);
-  box-shadow: var(--shadow-medium);
-  backdrop-filter: blur(10px);
+  min-height: 0;
+  margin-top: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line-soft);
 }
 .adjust[hidden] { display: none; }
 .adjust-mark { width: 17px; height: 17px; color: var(--accent); }
@@ -1325,8 +1321,8 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
   letter-spacing: -.02em;
   color: var(--ink);
 }
-.adjust p { margin: 0; color: var(--ink-3); font-size: 12px; }
-.adjust .adjust-keep { margin-top: 12px; color: var(--positive); }
+.adjust p { margin: 0; color: var(--ink-3); font-size: 11px; line-height: 1.4; }
+.adjust .adjust-keep { margin-top: 10px; color: var(--positive); }
 
 /* ---- convert panel ----
    Shares the Adjust shell — same corner, same card — because they are the same
@@ -1362,32 +1358,58 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 .convert-go { position: relative; width: 100%; margin-top: 14px; overflow: hidden; }
 .convert-go-label { position: relative; z-index: 1; }
 
-.adjust-head { display: flex; align-items: center; gap: 9px; }
-.adjust-reset { margin-left: auto; min-height: 26px; padding: 0 8px; font-size: 11.5px; }
+.adjust-head { display: flex; align-items: center; gap: 8px; padding: 0 4px; }
+.adjust-reset { margin-left: auto; min-height: 28px; padding: 0 7px; font-size: 11px; }
 
 /* The list of what can be changed. On a wide screen all three sliders are on
    show below it, so it is only the reset — the way in is the row itself. */
-.adjust-picker { display: flex; align-items: center; gap: 6px; }
-.adjust-pick { display: none; }
+.adjust-picker, .adjust-pick, .adjust-back { display: none; }
 /* A channel that has been moved says so, so the list is also a summary. */
 .adjust-pick[data-touched="true"] { border-color: var(--accent); color: var(--accent-2); }
-.adjust-back { display: none; }
-
-.adjust-rows { display: grid; gap: 10px; margin-top: 14px; }
-.adjust-row {
-  display: grid;
-  grid-template-columns: 70px 1fr 42px;
-  align-items: center;
-  gap: 10px;
+.adjust-rows { display: grid; gap: 4px; margin-top: 10px; }
+.adjust-group {
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: oklch(1 0 0 / 0.35);
 }
-.adjust-row label { color: var(--ink-3); font-size: 12px; }
-.adjust-row input[type="range"] { min-width: 0; accent-color: var(--accent); }
+.adjust-group[open] { border-color: var(--line-soft); background: oklch(1 0 0 / 0.62); }
+.adjust-group summary {
+  display: flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 9px;
+  color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+.adjust-group summary::-webkit-details-marker { display: none; }
+.adjust-group summary::after { content: '›'; margin-left: 7px; color: var(--ink-4); transform: rotate(90deg); }
+.adjust-group[open] summary::after { transform: rotate(-90deg); }
+.adjust-group-count {
+  display: grid; place-items: center;
+  min-width: 18px; height: 18px;
+  margin-left: auto;
+  border-radius: 999px;
+  color: transparent;
+  font: 10px/1 var(--font-mono);
+}
+.adjust-group-count[data-active="true"] { background: var(--accent-tint); color: var(--accent-2); }
+.adjust-group-body { display: grid; gap: 10px; padding: 2px 9px 11px; }
+.adjust-row {
+  display: grid; gap: 4px;
+}
+.adjust-row-head { display: flex; align-items: center; min-height: 22px; }
+.adjust-row label { color: var(--ink-3); font-size: 11px; }
+.adjust-row input[type="range"] { width: 100%; min-width: 0; height: 22px; accent-color: var(--accent); }
 .adjust-row input[type="range"]:disabled { opacity: .4; }
 
 /* The reading is the reset: a plain number until it has something to undo, and
    a real button the moment it does. */
 .adjust-value {
-  min-height: 22px;
+  min-width: 42px; min-height: 22px;
+  margin-left: auto;
   padding: 0 5px;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
@@ -2588,48 +2610,37 @@ button.picker-ratio:hover:not(:disabled) { border-color: var(--accent); backgrou
      everything that is not a control: the heading, the reassurance, the
      padding. What is left is a strip along the bottom with the image above it. */
   .adjust {
-    left: 8px; right: 8px; bottom: 8px;
-    width: auto;
-    padding: 8px;
-    border-radius: var(--radius);
-    background: oklch(1 0 0 / 0.92);
+    position: fixed;
+    left: 0; right: 0; bottom: calc(61px + env(safe-area-inset-bottom));
+    z-index: 12;
+    max-height: min(58vh, 520px);
+    margin: 0;
+    padding: 12px 12px 14px;
+    overflow: hidden auto;
+    overscroll-behavior: contain;
+    border-top: 1px solid var(--edge);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    background: color-mix(in oklch, var(--surface) 95%, transparent);
+    box-shadow: 0 -14px 38px oklch(0.35 0.02 60 / 0.18);
+    backdrop-filter: blur(14px);
   }
   /* Everything that is not a control goes: the heading, the mark, the sentence
      of reassurance, the whole head row. Two rows at most, and the same two
      however far through the job you are. */
-  .adjust h2, .adjust .adjust-keep, .adjust-mark, .adjust-head { display: none; }
-  .adjust-rows { margin-top: 0; gap: 0; }
+  .adjust .adjust-keep { display: none; }
+  .adjust-head { position: sticky; top: -12px; z-index: 2; padding: 10px 4px 8px; background: var(--surface); }
+  .adjust-rows { margin-top: 4px; gap: 6px; }
 
   /* Row one: what you can change. Row two, in its place, once you have picked:
      the way back and the slider itself, which takes everything that is left. */
-  .adjust-picker { gap: 6px; }
-  .adjust-picker[data-picked=""] { display: flex; }
-  .adjust-picker:not([data-picked=""]) { display: none; }
-  .adjust-pick {
-    display: inline-flex;
-    flex: 1 1 0;
-    min-width: 0;
-    min-height: 40px;
-    padding: 0 6px;
-    font-size: 12px;
-  }
-  .adjust-reset { flex: 0 0 auto; margin: 0; min-height: 40px; font-size: 11.5px; }
-
-  .adjust-row { display: none; }
-  .adjust-row[data-active="true"] {
-    display: grid;
-    grid-template-columns: 40px 1fr 40px;
-    gap: 8px;
-  }
-  .adjust-row label { display: none; }
-  .adjust-back {
-    display: inline-flex;
-    min-height: 40px; min-width: 40px;
-    padding: 0;
-  }
-  .adjust-back .icon { width: 18px; height: 18px; }
+  .adjust-reset { min-height: 38px; padding: 0 11px; font-size: 12px; }
+  .adjust-group summary { min-height: 46px; padding: 0 12px; font-size: 13px; }
+  .adjust-group-body { gap: 12px; padding: 4px 12px 14px; }
+  .adjust-row-head { min-height: 24px; }
+  .adjust-row label { font-size: 12px; }
+  .adjust-value { min-width: 48px; min-height: 32px; font-size: 12px; }
   /* A range with room to aim, and a thumb a finger can find. */
-  .adjust-row input[type="range"] { height: 40px; }
+  .adjust-row input[type="range"] { height: 42px; }
 
   /* The queue is a thumb-flick, so it gets momentum and stops where a thumbnail
      starts rather than halfway through one. Its buttons take the same 44px

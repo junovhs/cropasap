@@ -326,6 +326,30 @@ test('adjustments can be applied without a canvas filter', async () => {
   assert.equal(clear.data[3], 17);
 });
 
+test('the full still-photo look is grouped, resettable, and deterministic', async () => {
+  const { CHANNELS, applyAdjustment, filterFor, isNeutral, neutral } =
+    await import('../dist/src/adjust.js');
+
+  assert.deepEqual([...new Set(CHANNELS.map(({ group }) => group))],
+    ['Light', 'Tone', 'Color', 'Effects', 'Grain']);
+  assert.equal(CHANNELS.length, 25);
+  assert.equal(isNeutral(neutral()), true);
+  assert.notEqual(filterFor({ ...neutral(), temperature: 40 }), 'none');
+
+  const makePixels = () => ({
+    width: 3,
+    height: 3,
+    data: Uint8ClampedArray.from(Array.from({ length: 9 }, () => [180, 160, 140, 255]).flat()),
+  });
+  const look = { ...neutral(), vignette: 70, grainAmount: 45, grainColor: 30 };
+  const first = makePixels();
+  const second = makePixels();
+  applyAdjustment(first, look);
+  applyAdjustment(second, look);
+  assert.deepEqual(first.data, second.data, 'grain must be stable between preview/export passes');
+  assert.ok(first.data[0] < first.data[16], 'vignette darkens a corner more than the centre');
+});
+
 test('the freeform target is the crop, rounded to whole pixels', () => {
   assert.deepEqual(freeformTarget({ cx: 0, cy: 0, cropW: 1833.6, cropH: 1066.5 }), {
     w: 1834, h: 1067, label: FREEFORM_LABEL,

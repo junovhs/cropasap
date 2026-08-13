@@ -64,6 +64,18 @@
       </button>
     </nav>
 
+    <!-- Adjust lives with the controls now, beneath the main jobs. On a phone
+         the same section becomes a touch-sized drawer above the bottom bar. -->
+    <section id="adjust" class="adjust" aria-labelledby="adjustTitle" hidden>
+      <div class="adjust-head">
+        <span class="icon adjust-mark" data-icon="sliders"></span>
+        <h2 id="adjustTitle">Adjust</h2>
+        <button id="adjustReset" class="ghost adjust-reset" type="button" disabled>Reset all</button>
+      </div>
+      <div id="adjustRows" class="adjust-rows"></div>
+      <p class="adjust-keep">Edits stay with this image and are written into the export.</p>
+    </section>
+
     <div class="rail-foot">
       <!-- Two sentences about direct manipulation. They used to float over the
            picture; down here they stop competing with it. -->
@@ -133,20 +145,6 @@
           <span id="loadingPercent" class="loading-percent">0%</span>
         </div>
 
-      </div>
-
-      <div id="adjust" class="adjust" role="tabpanel" aria-labelledby="modeAdjust" hidden>
-        <div class="adjust-inner">
-          <div class="adjust-head">
-            <span class="icon adjust-mark" data-icon="sliders"></span>
-            <h2>Adjust</h2>
-            <!-- Moved into the channel row by the panel itself, so it keeps a
-                 place in the layout whether or not there is anything to undo. -->
-            <button id="adjustReset" class="ghost adjust-reset" type="button" disabled>Reset all</button>
-          </div>
-          <div id="adjustRows" class="adjust-rows"></div>
-          <p class="adjust-keep">Your crop is untouched while you are in here.</p>
-        </div>
       </div>
 
       <!-- Convert takes the same corner as Adjust: the picture stays on the
@@ -571,7 +569,7 @@
           <span class="docs-eyebrow">Appearance</span>
           <h2>Adjust</h2>
         </div>
-        <p>Adjust is separate from framing on purpose. The crop stays exactly where you left it while you change the look of the active image.</p>
+        <p>Adjust lives in the left sidebar beneath the main controls, so the crop stays visible while you tune the active image. On a phone, Adjust opens a touch-sized drawer above the bottom bar.</p>
 
         <div class="docs-card-grid docs-card-grid-3">
           <article class="docs-card docs-card-compact">
@@ -588,7 +586,7 @@
           </article>
         </div>
 
-        <p>Each loaded image keeps its own adjustment values. That matters in a queue: moving to another image does not carry the previous image's corrections with it. Use the per-channel reset control for one adjustment, or <strong>Reset all</strong> to return all three channels to neutral.</p>
+        <p>Five collapsible groups cover Light, Tone, Color, Effects, and Grain. Each loaded image keeps its own values, so moving to another image never carries corrections with it. Tap a value to reset one control, or use <strong>Reset all</strong> to return the complete look to neutral.</p>
         <p>Undo and redo cover workspace edits, so you can experiment with framing and adjustments without having to remember every previous value.</p>
       </section>
 
