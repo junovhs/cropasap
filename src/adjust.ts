@@ -286,9 +286,11 @@ export function applyAdjustment(
     const sy = Math.max(0, Math.min(height - 1, y));
     return source[(sy * width + sx) * 4 + component] ?? 0;
   };
-  // Brightness of a neighbour, edge-clamped and read from the untouched copy:
-  // clarity and sharpening compare a pixel with its surroundings, and they must
-  // all be comparing the same picture rather than a half-adjusted one.
+  /**
+   * Brightness of a neighbour, edge-clamped and read from the untouched copy:
+   * clarity and sharpening compare a pixel with its surroundings, and they must
+   * all be comparing the same picture rather than a half-adjusted one.
+   */
   const sampleLuma = (x: number, y: number): number =>
     (LUMA_R * sample(x, y, 0) + LUMA_G * sample(x, y, 1) + LUMA_B * sample(x, y, 2)) / 255;
 
