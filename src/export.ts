@@ -3,7 +3,7 @@
 import { makeZip } from './zip.js';
 import { encodePng } from './png.js';
 import { resample } from './resample.js';
-import { CAN_FILTER, applyAdjustment, filterFor, isNeutral } from './adjust.js';
+import { applyAdjustment, isNeutral } from './adjust.js';
 import { canvasContext } from './infrastructure/dom.js';
 import { decodeOriginal } from './infrastructure/image-decoder.js';
 import type {
@@ -134,15 +134,17 @@ export function renderItem(
   }
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
-  ctx.filter = filterFor(item.adjust);
   ctx.drawImage(src, sx, sy, sw, sh, 0, 0, target.w, target.h);
-  ctx.filter = 'none';
-  // Where the canvas has no filter, the same arithmetic is done on the pixels
-  // that were just written — at full output resolution, once, so the file is
-  // exactly what was asked for rather than the capped copy the preview uses.
-  if (!CAN_FILTER && !isNeutral(item.adjust)) {
+  // The file always gets the real pipeline, at full output resolution, once.
+  // `ctx.filter` can express five of the twenty-six controls, so using it here
+  // because it was available meant grain, halation, bloom, vignette, clarity
+  // and the tone curve were quietly missing from every export — the preview
+  // showed one picture and the file was another.
+  if (!isNeutral(item.adjust)) {
     const pixels = ctx.getImageData(0, 0, target.w, target.h);
-    applyAdjustment(pixels, item.adjust);
+    // Grain and the other radius effects are sized against the photograph, so
+    // they are told how many output pixels one source pixel became.
+    applyAdjustment(pixels, item.adjust, target.w / f.cropW);
     ctx.putImageData(pixels, 0, 0);
   }
   return out;

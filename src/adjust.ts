@@ -1,7 +1,6 @@
 // Image-adjustment domain and presentation adapter.
 
 import type { Adjustment, AdjustmentKey } from './domain/types.js';
-import { canvasContext } from './infrastructure/dom.js';
 
 export type AdjustmentGroup = 'Light' | 'Tone' | 'Color' | 'Effects' | 'Grain';
 
@@ -42,6 +41,7 @@ export const CHANNELS: readonly AdjustmentChannel[] = [
   channel('Color', 'shadowCool', 'Cool shadows', 0, 100),
   channel('Color', 'highlightWarm', 'Warm highlights', 0, 100),
   channel('Effects', 'clarity', 'Clarity'),
+  channel('Effects', 'sharpen', 'Sharpen', 0, 100),
   channel('Effects', 'bloom', 'Bloom', 0, 100),
   channel('Effects', 'halation', 'Halation', 0, 100),
   channel('Effects', 'vignette', 'Vignette'),
@@ -61,131 +61,326 @@ export const NEUTRAL: Readonly<Adjustment> = Object.freeze(
 
 export const neutral = (): Adjustment => ({ ...NEUTRAL });
 
+/**
+ * A string that changes exactly when the look does. Caches keyed on this
+ * redraw for grain and halation as readily as for contrast — which the CSS
+ * filter string it replaced could not, because it never mentioned them.
+ */
+export const adjustSignature = (adjustment: Adjustment | null | undefined): string =>
+  CHANNELS.map((entry) => adjustment?.[entry.key] ?? initialFor(entry)).join(',');
+
 export const isNeutral = (adjustment: Adjustment | null | undefined): boolean =>
   !adjustment || CHANNELS.every((entry) => (adjustment[entry.key] ?? initialFor(entry)) === initialFor(entry));
 
 const clampByte = (value: number): number => Math.max(0, Math.min(255, value));
 const clamp01 = (value: number): number => Math.max(0, Math.min(1, value));
 const smoothstep = (value: number): number => value * value * (3 - 2 * value);
+const LUMA_R = 0.2126, LUMA_G = 0.7152, LUMA_B = 0.0722;
+/** Display gamma. Exposure is the one control that has to be a light measurement
+ *  rather than a number nudge, so it alone leaves sRGB and comes back. */
+const GAMMA = 2.2;
+const GLOW_THRESHOLD = 0.62;
+
+/** Signed white noise, one value per grain cell. Mirrored exactly in the shader. */
 const hash = (x: number, y: number, seed: number): number => {
   const value = Math.sin(x * 12.9898 + y * 78.233 + seed * 37.719) * 43758.5453;
   return (value - Math.floor(value)) * 2 - 1;
 };
 
-/** Apply the complete still-photo look to export/thumbnail pixels in place. */
-export function applyAdjustment(pixels: ImageData, adjustment: Adjustment | null | undefined): void {
-  if (isNeutral(adjustment)) return;
+/**
+ * Every number the look actually needs, derived once from the slider values.
+ *
+ * The pixel loop below and the WebGL shader in `preview-gl.ts` both read this,
+ * so a slider's meaning is decided in exactly one place. When the two renderers
+ * disagree, it is because one of them stopped reading this — not because the
+ * slider means two things.
+ *
+ * `scale` is render pixels per source pixel. Everything with a radius — the
+ * grain cell, the sharpening and clarity taps, the colour fringe — is a
+ * statement about the photograph, not about whatever resolution it is being
+ * shown at, so those radii are multiplied through here. That is what makes the
+ * preview and the exported file agree instead of merely resemble each other.
+ */
+export interface LookUniforms {
+  readonly gain: number;
+  readonly highlights: number;
+  readonly shadows: number;
+  readonly whites: number;
+  readonly blacks: number;
+  readonly blackLift: number;
+  readonly contrast: number;
+  readonly curve: number;
+  readonly knee: number;
+  readonly temperature: number;
+  readonly tint: number;
+  readonly vibrance: number;
+  readonly saturation: number;
+  readonly shadowCool: number;
+  readonly highlightWarm: number;
+  readonly clarity: number;
+  readonly clarityRadius: number;
+  readonly sharpen: number;
+  readonly bloom: number;
+  readonly halation: number;
+  readonly vignette: number;
+  readonly fringe: number;
+  readonly grain: number;
+  readonly grainCell: number;
+  readonly grainRoughness: number;
+  readonly grainColor: number;
+  readonly highlightProtect: number;
+}
+
+export function lookUniforms(
+  adjustment: Adjustment | null | undefined,
+  scale = 1,
+): LookUniforms {
   const value = { ...neutral(), ...(adjustment ?? {}) };
+  const px = Math.max(0.05, scale);
+  return {
+    // ±100 is ±2 stops, which is the range a photograph can actually survive.
+    gain: 2 ** (value.exposure / 50),
+    highlights: value.highlights / 100,
+    shadows: value.shadows / 100,
+    whites: value.whites / 100,
+    blacks: value.blacks / 100,
+    blackLift: value.blackLift / 100,
+    contrast: 1 + value.contrast / 100,
+    curve: value.curve / 100,
+    knee: value.highlightKnee / 100,
+    temperature: value.temperature / 100,
+    tint: value.tint / 100,
+    vibrance: value.vibrance / 100,
+    saturation: 1 + value.saturation / 100,
+    shadowCool: value.shadowCool / 100,
+    highlightWarm: value.highlightWarm / 100,
+    clarity: value.clarity / 100,
+    clarityRadius: Math.max(1, Math.round(3 * px)),
+    sharpen: value.sharpen / 100,
+    bloom: value.bloom / 100,
+    halation: value.halation / 100,
+    vignette: value.vignette / 100,
+    fringe: Math.round(value.aberration / 100 * 3 * px),
+    grain: value.grainAmount / 100,
+    grainCell: Math.max(1, value.grainSize * px),
+    grainRoughness: 0.35 + value.grainRoughness / 100 * 1.65,
+    grainColor: value.grainColor / 100,
+    highlightProtect: value.highlightProtect / 100,
+  };
+}
+
+/** Whether the look needs a blurred copy of the picture to be rendered at all. */
+export const needsGlow = (u: LookUniforms): boolean => u.bloom > 0 || u.halation > 0;
+
+interface Glow {
+  readonly data: Float32Array;
+  readonly width: number;
+  readonly height: number;
+  readonly step: number;
+}
+
+/**
+ * The bright parts of the picture, spread out.
+ *
+ * Bloom and halation are light escaping sideways, so what they need is a
+ * genuinely blurred copy of the highlights — not a handful of taps at a fixed
+ * offset, which is a ring rather than a glow. Built once per render at a
+ * quarter resolution (blur is the one operation that costs nothing to do small)
+ * and box-blurred twice, which is close enough to a Gaussian that no one can
+ * tell and cheap enough to run on a phone.
+ */
+function buildGlow(source: Uint8ClampedArray, width: number, height: number): Glow {
+  const step = 4;
+  const gw = Math.max(1, Math.ceil(width / step));
+  const gh = Math.max(1, Math.ceil(height / step));
+  const bright = new Float32Array(gw * gh * 3);
+  for (let gy = 0; gy < gh; gy += 1) {
+    for (let gx = 0; gx < gw; gx += 1) {
+      let r = 0, g = 0, b = 0, taken = 0;
+      for (let dy = 0; dy < step; dy += 1) {
+        const sy = gy * step + dy;
+        if (sy >= height) break;
+        for (let dx = 0; dx < step; dx += 1) {
+          const sx = gx * step + dx;
+          if (sx >= width) break;
+          const at = (sy * width + sx) * 4;
+          r += (source[at] ?? 0) / 255;
+          g += (source[at + 1] ?? 0) / 255;
+          b += (source[at + 2] ?? 0) / 255;
+          taken += 1;
+        }
+      }
+      const inv = taken ? 1 / taken : 0;
+      r *= inv; g *= inv; b *= inv;
+      const over = Math.max(0, LUMA_R * r + LUMA_G * g + LUMA_B * b - GLOW_THRESHOLD);
+      const at = (gy * gw + gx) * 3;
+      bright[at] = r * over;
+      bright[at + 1] = g * over;
+      bright[at + 2] = b * over;
+    }
+  }
+
+  const radius = 3;
+  const scratch = new Float32Array(bright.length);
+  const blur = (from: Float32Array, into: Float32Array, horizontal: boolean): void => {
+    const span = radius * 2 + 1;
+    for (let y = 0; y < gh; y += 1) {
+      for (let x = 0; x < gw; x += 1) {
+        let r = 0, g = 0, b = 0;
+        for (let k = -radius; k <= radius; k += 1) {
+          const sx = horizontal ? Math.max(0, Math.min(gw - 1, x + k)) : x;
+          const sy = horizontal ? y : Math.max(0, Math.min(gh - 1, y + k));
+          const at = (sy * gw + sx) * 3;
+          r += from[at] ?? 0; g += from[at + 1] ?? 0; b += from[at + 2] ?? 0;
+        }
+        const at = (y * gw + x) * 3;
+        into[at] = r / span; into[at + 1] = g / span; into[at + 2] = b / span;
+      }
+    }
+  };
+  blur(bright, scratch, true);
+  blur(scratch, bright, false);
+  blur(bright, scratch, true);
+  blur(scratch, bright, false);
+  return { data: bright, width: gw, height: gh, step };
+}
+
+/**
+ * Apply the complete still-photo look to pixels in place.
+ *
+ * This is the definition of what the sliders do. Exports and contact-sheet
+ * thumbnails run it unconditionally: a CSS filter can express five of these
+ * twenty-six controls, so letting it stand in for the pipeline meant grain,
+ * halation, bloom, vignette, clarity and the tone curve were silently absent
+ * from the file on every browser that had `ctx.filter` — which is all of them.
+ */
+export function applyAdjustment(
+  pixels: ImageData,
+  adjustment: Adjustment | null | undefined,
+  scale = 1,
+): void {
+  if (isNeutral(adjustment)) return;
+  const u = lookUniforms(adjustment, scale);
   const data = pixels.data;
   const width = pixels.width || Math.max(1, data.length / 4);
   const height = pixels.height || 1;
   const source = new Uint8ClampedArray(data);
-  const exposure = Math.max(0, 1 + value.exposure / 100);
-  const contrast = 1 + value.contrast / 100;
-  const saturation = 1 + value.saturation / 100;
-  const vibrance = value.vibrance / 100;
-  const temperature = value.temperature / 100;
-  const tint = value.tint / 100;
-  const clarity = value.clarity / 100;
-  const bloom = value.bloom / 100;
-  const halation = value.halation / 100;
-  const fringe = Math.round(value.aberration / 25);
-  const grain = value.grainAmount / 100;
-  const grainCell = Math.max(1, Math.round(value.grainSize));
-  const roughness = 0.35 + value.grainRoughness / 100 * 1.65;
+
+  // Exposure is the same curve for every channel and every pixel, so the two
+  // gamma round trips it costs are paid 256 times rather than once per subpixel.
+  const exposed = new Float32Array(256);
+  for (let i = 0; i < 256; i += 1) exposed[i] = ((i / 255) ** GAMMA * u.gain) ** (1 / GAMMA);
+
+  const glow = needsGlow(u) ? buildGlow(source, width, height) : null;
+  const local = u.clarity !== 0 || u.sharpen !== 0;
 
   const sample = (x: number, y: number, component: number): number => {
     const sx = Math.max(0, Math.min(width - 1, x));
     const sy = Math.max(0, Math.min(height - 1, y));
     return source[(sy * width + sx) * 4 + component] ?? 0;
   };
+  const sampleLuma = (x: number, y: number): number =>
+    (LUMA_R * sample(x, y, 0) + LUMA_G * sample(x, y, 1) + LUMA_B * sample(x, y, 2)) / 255;
 
   for (let y = 0; y < height; y += 1) {
     for (let x = 0; x < width; x += 1) {
       const at = (y * width + x) * 4;
-      let r = fringe ? sample(x + fringe, y, 0) : source[at] ?? 0;
-      let g = source[at + 1] ?? 0;
-      let b = fringe ? sample(x - fringe, y, 2) : source[at + 2] ?? 0;
+      // Colour fringing is a lens, so it happens to the light before anything
+      // else does: the red and blue records are simply not in the same place.
+      const r0 = u.fringe ? sample(x + u.fringe, y, 0) : source[at] ?? 0;
+      const g0 = source[at + 1] ?? 0;
+      const b0 = u.fringe ? sample(x - u.fringe, y, 2) : source[at + 2] ?? 0;
 
-      r = r / 255 * exposure;
-      g = g / 255 * exposure;
-      b = b / 255 * exposure;
-      let luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      let r = exposed[r0] ?? 0;
+      let g = exposed[g0] ?? 0;
+      let b = exposed[b0] ?? 0;
+      let luminance = LUMA_R * r + LUMA_G * g + LUMA_B * b;
 
-      const shadows = value.shadows / 100 * (1 - luminance) ** 2 * 0.55;
-      const highlights = value.highlights / 100 * luminance ** 2 * 0.55;
-      const whites = value.whites / 100 * luminance ** 4 * 0.38;
-      const blacks = value.blacks / 100 * (1 - luminance) ** 4 * 0.38;
-      const light = shadows + highlights + whites + blacks + value.blackLift / 100 * 0.15;
+      const shadows = u.shadows * (1 - luminance) ** 2 * 0.55;
+      const highlights = u.highlights * luminance ** 2 * 0.55;
+      const whites = u.whites * luminance ** 4 * 0.38;
+      const blacks = u.blacks * (1 - luminance) ** 4 * 0.38;
+      const light = shadows + highlights + whites + blacks + u.blackLift * 0.15;
       r += light; g += light; b += light;
 
-      r = (r - 0.5) * contrast + 0.5;
-      g = (g - 0.5) * contrast + 0.5;
-      b = (b - 0.5) * contrast + 0.5;
-      const curve = value.curve / 100;
-      if (curve) {
-        r += (smoothstep(clamp01(r)) - r) * curve;
-        g += (smoothstep(clamp01(g)) - g) * curve;
-        b += (smoothstep(clamp01(b)) - b) * curve;
+      r = (r - 0.5) * u.contrast + 0.5;
+      g = (g - 0.5) * u.contrast + 0.5;
+      b = (b - 0.5) * u.contrast + 0.5;
+      if (u.curve) {
+        r += (smoothstep(clamp01(r)) - r) * u.curve;
+        g += (smoothstep(clamp01(g)) - g) * u.curve;
+        b += (smoothstep(clamp01(b)) - b) * u.curve;
       }
-      const knee = value.highlightKnee / 100 * 0.7;
-      if (knee) {
-        r = r / (1 + Math.max(0, r - 0.62) * knee * 3);
-        g = g / (1 + Math.max(0, g - 0.62) * knee * 3);
-        b = b / (1 + Math.max(0, b - 0.62) * knee * 3);
+      if (u.knee) {
+        const knee = u.knee * 0.7 * 3;
+        r = r / (1 + Math.max(0, r - 0.62) * knee);
+        g = g / (1 + Math.max(0, g - 0.62) * knee);
+        b = b / (1 + Math.max(0, b - 0.62) * knee);
       }
 
-      luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-      const max = Math.max(r, g, b), min = Math.min(r, g, b);
-      const muted = 1 - clamp01(max - min);
-      const colorScale = saturation * (1 + vibrance * muted * 0.75);
+      luminance = LUMA_R * r + LUMA_G * g + LUMA_B * b;
+      const muted = 1 - clamp01(Math.max(r, g, b) - Math.min(r, g, b));
+      const colorScale = u.saturation * (1 + u.vibrance * muted * 0.75);
       r = luminance + (r - luminance) * colorScale;
       g = luminance + (g - luminance) * colorScale;
       b = luminance + (b - luminance) * colorScale;
-      r += temperature * 0.12 + tint * 0.06;
-      g -= tint * 0.08;
-      b -= temperature * 0.12 - tint * 0.06;
-      const shadowMask = (1 - clamp01(luminance)) ** 2 * value.shadowCool / 100;
-      const highlightMask = clamp01(luminance) ** 2 * value.highlightWarm / 100;
+      r += u.temperature * 0.12 + u.tint * 0.06;
+      g -= u.tint * 0.08;
+      b -= u.temperature * 0.12 - u.tint * 0.06;
+      const shadowMask = (1 - clamp01(luminance)) ** 2 * u.shadowCool;
+      const highlightMask = clamp01(luminance) ** 2 * u.highlightWarm;
       r += highlightMask * 0.12; g += highlightMask * 0.045; b += shadowMask * 0.12;
 
-      if (clarity) {
-        const left = sample(x - 1, y, 1) / 255;
-        const right = sample(x + 1, y, 1) / 255;
-        const above = sample(x, y - 1, 1) / 255;
-        const below = sample(x, y + 1, 1) / 255;
-        const local = (left + right + above + below) * 0.25;
-        const edge = (luminance - local) * clarity * 0.7;
+      // Clarity and Sharpen are the same idea at two distances: both add back
+      // what the neighbourhood average lost, one over a few pixels and one over
+      // one, which is why they are worth having as separate controls.
+      if (local) {
+        const here = sampleLuma(x, y);
+        let edge = 0;
+        if (u.clarity) {
+          const k = u.clarityRadius;
+          const around = (sampleLuma(x - k, y) + sampleLuma(x + k, y)
+            + sampleLuma(x, y - k) + sampleLuma(x, y + k)) * 0.25;
+          edge += (here - around) * u.clarity * 0.9;
+        }
+        if (u.sharpen) {
+          const around = (sampleLuma(x - 1, y) + sampleLuma(x + 1, y)
+            + sampleLuma(x, y - 1) + sampleLuma(x, y + 1)) * 0.25;
+          edge += (here - around) * u.sharpen * 1.4;
+        }
         r += edge; g += edge; b += edge;
       }
 
-      if (bloom || halation) {
-        const radius = Math.max(2, Math.round(Math.min(width, height) / 180));
-        let glowR = 0, glowG = 0, glowB = 0;
-        for (const [dx, dy] of [[radius, 0], [-radius, 0], [0, radius], [0, -radius]] as const) {
-          const sr = sample(x + dx, y + dy, 0) / 255;
-          const sg = sample(x + dx, y + dy, 1) / 255;
-          const sb = sample(x + dx, y + dy, 2) / 255;
-          const bright = Math.max(0, 0.2126 * sr + 0.7152 * sg + 0.0722 * sb - 0.62);
-          glowR += sr * bright; glowG += sg * bright; glowB += sb * bright;
-        }
-        r += glowR * bloom * 0.16 + glowR * halation * 0.14;
-        g += glowG * bloom * 0.16 + glowG * halation * 0.035;
-        b += glowB * bloom * 0.16;
+      if (glow) {
+        const gx = Math.max(0, Math.min(glow.width - 1, Math.floor(x / glow.step)));
+        const gy = Math.max(0, Math.min(glow.height - 1, Math.floor(y / glow.step)));
+        const gat = (gy * glow.width + gx) * 3;
+        const glowR = glow.data[gat] ?? 0;
+        const glowG = glow.data[gat + 1] ?? 0;
+        const glowB = glow.data[gat + 2] ?? 0;
+        // Bloom is white light spreading. Halation is the red one: on film it is
+        // light that went through the emulsion, bounced off the backing and came
+        // back, and it comes back red — so it is weighted, not tinted afterwards.
+        r += glowR * u.bloom * 1.7 + glowR * u.halation * 2.6;
+        g += glowG * u.bloom * 1.7 + glowG * u.halation * 0.7;
+        b += glowB * u.bloom * 1.7 + glowB * u.halation * 0.25;
       }
 
-      const nx = width > 1 ? x / (width - 1) * 2 - 1 : 0;
-      const ny = height > 1 ? y / (height - 1) * 2 - 1 : 0;
-      const edge = clamp01((nx * nx + ny * ny - 0.18) / 1.45);
-      const vignette = value.vignette / 100;
-      const shade = vignette >= 0 ? 1 - edge * vignette * 0.72 : 1 - edge * vignette * 0.38;
-      r *= shade; g *= shade; b *= shade;
+      if (u.vignette) {
+        const nx = width > 1 ? x / (width - 1) * 2 - 1 : 0;
+        const ny = height > 1 ? y / (height - 1) * 2 - 1 : 0;
+        const edge = clamp01((nx * nx + ny * ny - 0.18) / 1.45);
+        const shade = u.vignette >= 0
+          ? 1 - edge * u.vignette * 0.72
+          : 1 - edge * u.vignette * 0.38;
+        r *= shade; g *= shade; b *= shade;
+      }
 
-      if (grain) {
-        const gx = Math.floor(x / grainCell), gy = Math.floor(y / grainCell);
-        const protect = 1 - clamp01(luminance) * value.highlightProtect / 100;
-        const mono = hash(gx, gy, 1) * grain * roughness * 0.12 * protect;
-        const chroma = value.grainColor / 100 * grain * 0.055 * protect;
+      if (u.grain) {
+        const gx = Math.floor(x / u.grainCell), gy = Math.floor(y / u.grainCell);
+        const protect = 1 - clamp01(luminance) * u.highlightProtect;
+        const mono = hash(gx, gy, 1) * u.grain * u.grainRoughness * 0.12 * protect;
+        const chroma = u.grainColor * u.grain * 0.055 * protect;
         r += mono + hash(gx, gy, 2) * chroma;
         g += mono + hash(gx, gy, 3) * chroma;
         b += mono + hash(gx, gy, 4) * chroma;
@@ -197,30 +392,6 @@ export function applyAdjustment(pixels: ImageData, adjustment: Adjustment | null
     }
   }
 }
-
-/** Cheap compositor/canvas approximation used while a finger is moving. */
-export function filterFor(adjustment: Adjustment | null | undefined): string {
-  if (isNeutral(adjustment)) return 'none';
-  const value = { ...neutral(), ...(adjustment ?? {}) };
-  const brightness = Math.max(0.1, (1 + value.exposure / 100) * (1 + (value.shadows + value.whites) / 700));
-  const contrast = Math.max(0.1, 1 + (value.contrast + value.curve + value.clarity * 0.45 - value.blackLift * 0.35) / 100);
-  const saturation = Math.max(0, 1 + (value.saturation + value.vibrance * 0.7 + value.grainColor * 0.08) / 100);
-  const hue = (value.tint - value.temperature + value.shadowCool * 0.2 - value.highlightWarm * 0.2) * 0.12;
-  const sepia = Math.max(0, value.temperature + value.highlightWarm - value.shadowCool) / 500;
-  return `brightness(${brightness.toFixed(3)}) contrast(${contrast.toFixed(3)}) saturate(${saturation.toFixed(3)}) hue-rotate(${hue.toFixed(2)}deg) sepia(${sepia.toFixed(3)})`;
-}
-
-export const CAN_FILTER = (() => {
-  try {
-    const canvas = document.createElement('canvas');
-    canvas.width = 1; canvas.height = 1;
-    const context = canvasContext(canvas, { willReadFrequently: true });
-    if (!('filter' in context)) return false;
-    context.filter = 'invert(1)';
-    context.fillStyle = '#000'; context.fillRect(0, 0, 1, 1);
-    return (context.getImageData(0, 0, 1, 1).data[0] ?? 0) > 200;
-  } catch { return false; }
-})();
 
 interface AdjustPanelOptions {
   readonly rows: HTMLElement;
