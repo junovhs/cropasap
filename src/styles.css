@@ -2804,9 +2804,18 @@ html.design-preview {
   --accent-soft: #e9eeff;
   --accent-tint: #e9eeff;
 
-  --positive: #17885e;
-  --warn:     #2f4fc4;
-  --danger:   #cf4f5e;
+  /* Supporting signals sampled from the supplied palette. Cobalt remains the
+     product accent; these identify distinct tools and outcomes without turning
+     the cool-neutral workspace into a rainbow. */
+  --signal-orange: #ff4f1f;
+  --signal-blue:   #6d96ff;
+  --signal-violet: #a07cf5;
+  --signal-teal:   #60c4b8;
+  --signal-green:  #198f50;
+
+  --positive: var(--signal-green);
+  --warn:     #b93613;
+  --danger:   #b93613;
 
   --radius-sm: 7px;
   --radius:    7px;
@@ -2938,7 +2947,7 @@ html.design-preview .nav-item[aria-selected="true"] {
   border-color: var(--ink);
   background: var(--ink);
   color: #f7f9fc;
-  box-shadow: inset 3px 0 0 var(--accent);
+  box-shadow: none;
 }
 html.design-preview .nav-item[aria-selected="true"] .icon { color: var(--accent); }
 html.design-preview .nav-item[aria-selected="true"]:hover:not(:disabled) {
@@ -2947,6 +2956,11 @@ html.design-preview .nav-item[aria-selected="true"]:hover:not(:disabled) {
   color: #f7f9fc;
   transform: none;
 }
+html.design-preview #modeAdjust:not([aria-selected="true"]) .icon { color: var(--signal-violet); }
+html.design-preview #modeConvert:not([aria-selected="true"]) .icon { color: var(--signal-teal); }
+html.design-preview #modeBatch:not([aria-selected="true"]) .icon { color: var(--signal-green); }
+html.design-preview .adjust-mark { color: var(--signal-violet); }
+html.design-preview .convert .adjust-mark { color: var(--signal-teal); }
 html.design-preview .hints-label,
 html.design-preview .field-label,
 html.design-preview .panel h2,
@@ -3084,11 +3098,22 @@ html.design-preview .manual-size-row input {
   background: var(--surface);
   box-shadow: none;
 }
-html.design-preview .size-button:hover,
+html.design-preview .size-button:hover { border-color: var(--ink); box-shadow: none; }
 html.design-preview .text-input:focus,
 html.design-preview .manual-size-row input:focus {
   border-color: var(--ink);
   box-shadow: 0 0 0 2px var(--accent);
+}
+/* A provisional size is an open choice. Its doubled blue dashes carry that
+   state on their own, including on hover; no solid overlay is added. */
+html.design-preview .size-button.is-provisional,
+html.design-preview .size-button.is-provisional:hover {
+  border: 2px dashed var(--signal-blue);
+  box-shadow: none;
+}
+html.design-preview .size-button.is-provisional .swatch {
+  border: 2px dashed var(--signal-blue);
+  background: none;
 }
 /* The search shell owns focus. Giving the field a second border and shadow
    drew a clipped ring inside it instead of one clear selection treatment. */
@@ -3105,6 +3130,12 @@ html.design-preview .picker-search:focus-within {
 html.design-preview .size-text strong { color: var(--ink); }
 html.design-preview .swatch { border-radius: 3px; }
 html.design-preview .export-button { min-height: 48px; }
+html.design-preview .chip.warn { border-color: var(--signal-orange); }
+html.design-preview .row-action.is-on { color: var(--signal-violet); }
+html.design-preview .row-action.is-on:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--signal-violet) 14%, white);
+  color: #6942c6;
+}
 
 html.design-preview .strip {
   border-color: var(--line);
@@ -3112,8 +3143,10 @@ html.design-preview .strip {
 }
 html.design-preview .progress { background: #d5dae3; }
 html.design-preview .progress > div { background: var(--accent); }
+html.design-preview .strip.is-complete .progress > div { background: var(--signal-green); }
 html.design-preview .thumb { border-radius: var(--radius-sm); }
 html.design-preview .thumb.is-current { border-color: var(--accent); }
+html.design-preview .thumb.is-approved { border-color: var(--signal-green); }
 
 html.design-preview .picker,
 html.design-preview .coach { background: rgb(18 22 28 / .42); }
