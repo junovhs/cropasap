@@ -2917,6 +2917,7 @@ html.design-preview .rail {
 html.design-preview .nav {
   gap: 1px;
   margin-inline: -12px;
+  margin-top: -14px;
 }
 html.design-preview .nav-item {
   min-height: 46px;
@@ -3147,7 +3148,7 @@ html.design-preview .docs-bar { background: rgb(245 246 248 / .94); }
     padding-top: 6px;
     background: var(--ink);
   }
-  html.design-preview .nav { gap: 1px; }
+  html.design-preview .nav { gap: 1px; margin-top: 0; }
   html.design-preview .nav-item {
     min-height: 44px;
     color: #f7f9fc;
