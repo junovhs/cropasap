@@ -291,8 +291,8 @@ test('a small frame keeps a middle to drag', () => {
   assert.equal(handleAt({ x: 58, y: 58 }, small, true), 'se');
 });
 
-test('adjustments can be applied without a canvas filter', async () => {
-  const { applyAdjustment } = await import('../dist/src/adjust.js');
+test('the pipeline is the only route: adjustments are arithmetic on pixels', async () => {
+  const { applyAdjustment, NEUTRAL } = await import('../dist/src/adjust.js');
   const pixels = (...rgb) => ({ data: Uint8ClampedArray.from([...rgb, 255]) });
 
   // Nothing asked for, nothing touched — the common case, and the fast one.
@@ -300,10 +300,20 @@ test('adjustments can be applied without a canvas filter', async () => {
   applyAdjustment(untouched, { exposure: 0, contrast: 0, saturation: 0 });
   assert.deepEqual([...untouched.data], [10, 120, 250, 255]);
 
-  // Exposure is a multiply: mid-grey at +50% lands half again as bright.
+  // Exposure is stops of light, not percent of a display value: ±100 is ±2
+  // stops, and the doubling happens in linear light before the display gamma
+  // is put back. So +50 is exactly one stop — twice the light — which on a
+  // 2.2 gamma display reads as roughly 1.37x the encoded number, not 2x.
   const brighter = pixels(100, 100, 100);
-  applyAdjustment(brighter, { exposure: 50, contrast: 0, saturation: 0 });
-  assert.equal(brighter.data[0], 150);
+  applyAdjustment(brighter, { ...NEUTRAL, exposure: 50 });
+  const linear = (v) => (v / 255) ** 2.2;
+  assert.ok(
+    Math.abs(linear(brighter.data[0]) - linear(100) * 2) < 0.01,
+    'one stop is twice the light',
+  );
+  const darker = pixels(100, 100, 100);
+  applyAdjustment(darker, { ...NEUTRAL, exposure: -50 });
+  assert.ok(darker.data[0] < 100, 'and down is down');
 
   // Contrast pivots about the middle, so mid-grey is the one value it cannot
   // move, and everything either side of it spreads.
@@ -327,14 +337,13 @@ test('adjustments can be applied without a canvas filter', async () => {
 });
 
 test('the full still-photo look is grouped, resettable, and deterministic', async () => {
-  const { CHANNELS, applyAdjustment, filterFor, isNeutral, neutral } =
+  const { CHANNELS, applyAdjustment, isNeutral, neutral } =
     await import('../dist/src/adjust.js');
 
   assert.deepEqual([...new Set(CHANNELS.map(({ group }) => group))],
     ['Light', 'Tone', 'Color', 'Effects', 'Grain']);
-  assert.equal(CHANNELS.length, 25);
+  assert.equal(CHANNELS.length, 26);
   assert.equal(isNeutral(neutral()), true);
-  assert.notEqual(filterFor({ ...neutral(), temperature: 40 }), 'none');
 
   const makePixels = () => ({
     width: 3,
@@ -348,6 +357,48 @@ test('the full still-photo look is grouped, resettable, and deterministic', asyn
   applyAdjustment(second, look);
   assert.deepEqual(first.data, second.data, 'grain must be stable between preview/export passes');
   assert.ok(first.data[0] < first.data[16], 'vignette darkens a corner more than the centre');
+});
+
+// The bug this suite exists to keep shut: every one of these used to reach the
+// canvas through a five-function CSS filter that could not express any of them,
+// so moving the slider changed nothing at all in the file. A channel that
+// cannot move a pixel is not a channel.
+test('every channel reaches the pixels', async () => {
+  const { CHANNELS, applyAdjustment, neutral } = await import('../dist/src/adjust.js');
+
+  // A patch with an edge, a bright corner and a shadow, so local contrast,
+  // glow and the tone regions all have something to find.
+  const makePixels = () => {
+    const width = 16, height = 16;
+    const data = new Uint8ClampedArray(width * height * 4);
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const at = (y * width + x) * 4;
+        const bright = x < width / 2 ? 30 : 245;
+        data[at] = bright;
+        data[at + 1] = Math.round(bright * 0.8);
+        data[at + 2] = Math.round(bright * 0.6);
+        data[at + 3] = 255;
+      }
+    }
+    return { width, height, data };
+  };
+
+  // The four grain shape controls describe grain rather than add any, so each
+  // is measured against a picture that already has some. Everything else has
+  // to stand on its own.
+  const shape = new Set(['grainSize', 'grainRoughness', 'grainColor', 'highlightProtect']);
+  for (const { key, initial = 0, min, max } of CHANNELS) {
+    const context = shape.has(key) ? { grainAmount: 60 } : {};
+    const before = makePixels();
+    applyAdjustment(before, { ...neutral(), ...context });
+    // Move the channel as far from its resting value as it goes.
+    const away = Math.abs(max - initial) >= Math.abs(min - initial) ? max : min;
+    const after = makePixels();
+    applyAdjustment(after, { ...neutral(), ...context, [key]: away });
+    const changed = [...after.data].some((value, at) => value !== before.data[at]);
+    assert.ok(changed, `${key} at ${away} changed nothing`);
+  }
 });
 
 test('the freeform target is the crop, rounded to whole pixels', () => {

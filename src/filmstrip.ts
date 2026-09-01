@@ -1,6 +1,6 @@
 // The queue rail: a live contact sheet of the output queue.
 
-import { CAN_FILTER, applyAdjustment, filterFor, isNeutral } from './adjust.js';
+import { adjustSignature, applyAdjustment, isNeutral } from './adjust.js';
 import { canvasContext } from './infrastructure/dom.js';
 import { sourceDimensions } from './infrastructure/image-decoder.js';
 import type { AppState, CropItem, OutputTarget } from './domain/types.js';
@@ -84,7 +84,6 @@ export function createFilmstrip(options: FilmstripOptions): FilmstripController 
     const source = sourceDimensions(item.image);
     const xScale = item.image.naturalWidth / source.width;
     const yScale = item.image.naturalHeight / source.height;
-    ctx.filter = filterFor(item.adjust);
     ctx.drawImage(
       item.image,
       (frame.cx - frame.cropW / 2) * xScale,
@@ -96,13 +95,12 @@ export function createFilmstrip(options: FilmstripOptions): FilmstripController 
       w,
       h,
     );
-    ctx.filter = 'none';
-    // A contact sheet has to be a preview of the file, so it carries the
-    // adjustment by whichever route this browser has. A thumbnail is a few
-    // thousand pixels, so the slow route costs nothing here.
-    if (!CAN_FILTER && !isNeutral(item.adjust)) {
+    // A contact sheet has to be a preview of the file, so it runs the same
+    // pipeline the file will — a thumbnail is a few thousand pixels, and the
+    // approximation it used to take here left out most of what it was showing.
+    if (!isNeutral(item.adjust)) {
       const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      applyAdjustment(pixels, item.adjust);
+      applyAdjustment(pixels, item.adjust, canvas.width / (frame.cropW * xScale));
       ctx.putImageData(pixels, 0, 0);
     }
   }
@@ -163,7 +161,7 @@ export function createFilmstrip(options: FilmstripOptions): FilmstripController 
 
       const frame = item.frame;
       const key = frame
-        ? `${Math.round(frame.cx)},${Math.round(frame.cy)},${Math.round(frame.cropW)},${target.w}x${target.h},${filterFor(item.adjust)}`
+        ? `${Math.round(frame.cx)},${Math.round(frame.cy)},${Math.round(frame.cropW)},${target.w}x${target.h},${adjustSignature(item.adjust)}`
         : '';
       if (key !== cell.key) {
         drawThumb(cell.canvas, item, target);

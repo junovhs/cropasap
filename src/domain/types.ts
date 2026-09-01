@@ -19,7 +19,7 @@ export type AdjustmentKey =
   | 'contrast' | 'curve' | 'blackLift' | 'highlightKnee'
   | 'temperature' | 'tint' | 'vibrance' | 'saturation'
   | 'shadowCool' | 'highlightWarm'
-  | 'clarity' | 'bloom' | 'halation' | 'vignette' | 'aberration'
+  | 'clarity' | 'sharpen' | 'bloom' | 'halation' | 'vignette' | 'aberration'
   | 'grainAmount' | 'grainSize' | 'grainRoughness' | 'grainColor'
   | 'highlightProtect';
 export type Adjustment = Record<AdjustmentKey, number>;

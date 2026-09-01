@@ -12,7 +12,8 @@
 // available as alternate ways to change the same persisted source rectangle.
 
 import { Spring, createLoop, clamp } from './juice.js';
-import { CAN_FILTER, filterFor } from './adjust.js';
+import { applyAdjustment, isNeutral, neutral } from './adjust.js';
+import { createAdjustPreview } from './preview-gl.js';
 import { resizeFree } from './application/freeform.js';
 import { frameFit, type FrameView } from './application/frame-view.js';
 import { handleAt, type FrameHandle } from './application/handles.js';
@@ -20,6 +21,13 @@ import { canvasContext } from './infrastructure/dom.js';
 import { sourceDimensions } from './infrastructure/image-decoder.js';
 import type { Adjustment, Framing } from './domain/types.js';
 
+// The CPU fallback preview, for a browser with no WebGL. The long side is not
+// fixed: it starts modest and is nudged after every pass toward whatever this
+// machine can do inside the budget, between these two ends.
+const CPU_BUDGET = 60;  // ms of pixel work a moving slider can afford
+const CPU_MIN = 320;
+const CPU_MAX = 1400;
+const CPU_START = 640;
 const GHOST_IDLE = 0.12;      // what you keep seeing of the discarded image
 const GHOST_ACTIVE = 0.34;    // ...and how much it lifts while you work
 const FRAME_PAD = 76;         // most breathing room between frame and stage edge
@@ -98,8 +106,18 @@ export function createViewfinder(
   const ctx = canvasContext(canvas);
 
   let image: HTMLImageElement | null = null;
-  let filter = 'none';
-  let previewFilter = 'none';
+  // The look on the stage. `preview` is the GPU route — the same maths the file
+  // gets, at frame rate. Where there is no WebGL the same pipeline runs on the
+  // CPU into `slow`, at a resolution chosen so a dragging finger still gets
+  // frames. There is no third route: an approximation that omits most of the
+  // controls is not a preview of anything.
+  const preview = createAdjustPreview();
+  let adjustment: Adjustment = neutral();
+  let previewDirty = true;
+  let previewSource: HTMLCanvasElement | null = null;
+  let slow: HTMLCanvasElement | null = null;
+  let slowSource: HTMLImageElement | null = null;
+  let cpuLong = CPU_START;
   let aspect = 1;
   // Freeform only changes what a resize is allowed to do. The frame is still
   // the thing being manipulated, and release still recentres.
@@ -368,18 +386,21 @@ export function createViewfinder(
     ctx.clearRect(0, 0, vw, vh);
     if (!image) return;
 
+    // Geometry is always the photograph's. What gets painted may be a rendered
+    // copy of it at a lower resolution, and the frame must not notice.
     const source = sourceDimensions(image);
     const w = source.width * scale.v;
     const h = source.height * scale.v;
     const f = frameRect();
+    const paint = adjustedSource(image);
+
     // The adjustment rides on both passes, so the ghost you are cutting away is
     // the same picture as the one you are keeping. The chrome below is drawn
     // unfiltered — the frame is furniture, not part of the photograph.
-    ctx.filter = filter;
 
     // 1. the whole image, faint — this is the part you are cutting away.
     ctx.globalAlpha = ghost.v;
-    ctx.drawImage(image, tx.v, ty.v, w, h);
+    ctx.drawImage(paint, tx.v, ty.v, w, h);
     ctx.globalAlpha = 1;
 
     // 2. the same image again at full strength, clipped to the frame.
@@ -387,11 +408,72 @@ export function createViewfinder(
     ctx.beginPath();
     ctx.rect(f.x, f.y, f.w, f.h);
     ctx.clip();
-    ctx.drawImage(image, tx.v, ty.v, w, h);
+    ctx.drawImage(paint, tx.v, ty.v, w, h);
     ctx.restore();
 
-    ctx.filter = 'none';
     drawChrome(f);
+  }
+
+  /**
+   * The picture to paint: the photograph with the look already on it. Rendered
+   * only when something has actually changed — the spring loop runs at sixty
+   * frames a second and the look does not.
+   */
+  function adjustedSource(photo: HTMLImageElement): CanvasImageSource {
+    if (isNeutral(adjustment)) {
+      previewSource = null;
+      return photo;
+    }
+    if (previewDirty) {
+      previewSource = preview
+        ? preview.render(photo, adjustment)
+        : renderOnCpu(photo);
+      previewDirty = false;
+    }
+    return previewSource ?? photo;
+  }
+
+  /**
+   * The same pipeline, in JavaScript, for a browser with no WebGL at all.
+   *
+   * The cost is per pixel and a dragging finger cannot wait, so the picture is
+   * shrunk first — and by however much *this* machine turns out to need. The
+   * long side is nudged after every pass toward whatever fits the frame budget,
+   * so a slow phone settles small and a desktop settles large without either
+   * being guessed at from a user agent string. Radius effects are told the
+   * shrink, so grain stays grain-sized rather than becoming its own texture.
+   */
+  function renderOnCpu(photo: HTMLImageElement): HTMLCanvasElement | null {
+    const source = sourceDimensions(photo);
+    if (!source.width || !source.height) return null;
+    const fit = Math.min(1, cpuLong / Math.max(source.width, source.height));
+    const w = Math.max(1, Math.round(source.width * fit));
+    const h = Math.max(1, Math.round(source.height * fit));
+    slow ??= document.createElement('canvas');
+    const into = canvasContext(slow, { willReadFrequently: true });
+    if (slow.width !== w || slow.height !== h || slowSource !== photo) {
+      slow.width = w;
+      slow.height = h;
+      slowSource = photo;
+    }
+    into.clearRect(0, 0, w, h);
+    into.imageSmoothingEnabled = true;
+    into.imageSmoothingQuality = 'high';
+    into.drawImage(photo, 0, 0, w, h);
+    const pixels = into.getImageData(0, 0, w, h);
+    const started = performance.now();
+    applyAdjustment(pixels, adjustment, w / source.width);
+    const spent = performance.now() - started;
+    into.putImageData(pixels, 0, 0);
+    // Area is what costs, so the correction is on area: overrun shrinks by the
+    // ratio it overran by, and a comfortable pass is allowed to grow back a
+    // little. Both are clamped, so the size walks rather than oscillates.
+    if (spent > CPU_BUDGET) {
+      cpuLong = Math.max(CPU_MIN, Math.round(cpuLong * Math.max(0.6, (CPU_BUDGET / spent) ** 0.5)));
+    } else if (spent < CPU_BUDGET * 0.4 && cpuLong < CPU_MAX) {
+      cpuLong = Math.min(CPU_MAX, Math.round(cpuLong * 1.25));
+    }
+    return slow;
   }
 
   function drawChrome(f: FrameRect): void {
@@ -815,6 +897,9 @@ export function createViewfinder(
   return {
     setImage(next: HTMLImageElement | null, framing?: Framing | null): void {
       image = next;
+      previewDirty = true;
+      previewSource = null;
+      slowSource = null;
       hoverHandle = null;
       canvas.style.cursor = 'default';
       if (next) {
@@ -834,20 +919,8 @@ export function createViewfinder(
     // The live adjustment for whatever is on the stage. Only the pixels change:
     // the framing, the springs and the frame itself never hear about it.
     setAdjust(adjust: Adjustment): void {
-      const next = filterFor(adjust);
-      if (next === previewFilter) return;
-      previewFilter = next;
-      // CSS filters are compositor work on browsers whose Canvas 2D context
-      // cannot filter (notably older mobile Safari). That keeps a dragging
-      // finger off the full-resolution getImageData/putImageData path entirely.
-      // Export still applies the exact pixel pipeline in adjust.ts.
-      if (CAN_FILTER) {
-        filter = next;
-        canvas.style.filter = 'none';
-      } else {
-        filter = 'none';
-        canvas.style.filter = next;
-      }
+      adjustment = adjust;
+      previewDirty = true;
       loop.kick();
     },
     setTarget(w: number, h: number, immediate = false): void {
