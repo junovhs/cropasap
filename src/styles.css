@@ -807,9 +807,7 @@ kbd {
   z-index: 6;
   display: grid; place-items: center;
   padding: 24px; text-align: center;
-  background:
-    radial-gradient(70% 55% at 50% 42%, oklch(0.68 0.13 260 / 0.07), transparent 70%),
-    var(--bg);
+  background: #fff;
 }
 .empty[hidden] { display: none; }
 .empty-inner {
@@ -2175,7 +2173,8 @@ button.ghost:hover:not(:disabled), .nav-item:hover:not(:disabled) { background: 
 .view-long { display: none; }
 .view-short { display: inline; }
 .stage { margin: 0 16px 16px; }
-.empty-inner { max-width: 480px; }
+.empty-inner { max-width: 480px; background: #fff; border-color: var(--line); box-shadow: 0 1px 2px rgb(16 16 79 / 0.05), 0 14px 40px rgb(16 16 79 / 0.10); }
+body.dragging .empty-inner { border-color: var(--accent); background: var(--accent-soft); }
 .empty h1 { font-family: var(--font-ui); letter-spacing: -.035em; }
 .panel { padding: 34px 28px 20px; background: var(--bg); }
 .panel h2 { margin-bottom: 14px; color: var(--ink); font-size: 19px; font-weight: 600; letter-spacing: -.02em; text-transform: none; }
