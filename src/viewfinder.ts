@@ -510,13 +510,13 @@ export function createViewfinder(
     };
 
     ctx.lineCap = 'square';
-    ctx.strokeStyle = 'rgba(0,0,0,.4)';
+    ctx.strokeStyle = '#0068f5';
     ctx.lineWidth = 3.5;
     ctx.strokeRect(f.x, f.y, f.w, f.h);
     ctx.lineWidth = 5;
     corners();
 
-    ctx.strokeStyle = 'rgba(255,255,255,.92)';
+    ctx.strokeStyle = '#0068f5';
     ctx.lineWidth = 1.5;
     ctx.strokeRect(f.x, f.y, f.w, f.h);
     ctx.strokeStyle = '#fff';
@@ -535,7 +535,7 @@ export function createViewfinder(
       ctx.stroke();
     };
 
-    ctx.strokeStyle = 'rgba(0,0,0,.45)';
+    ctx.strokeStyle = '#0068f5';
     ctx.lineWidth = 5;
     edgeBars();
     ctx.strokeStyle = '#fff';
@@ -548,7 +548,7 @@ export function createViewfinder(
     // otherwise light the north edge every time you dragged the picture.
     const active = dragging?.handle ?? hoverHandle;
     if (active && active !== 'move' && active !== 'pan') {
-      ctx.strokeStyle = 'rgba(186, 88, 44, .95)';
+      ctx.strokeStyle = '#0058d4';
       ctx.lineWidth = 3;
       ctx.beginPath();
       if (active.includes('n')) { ctx.moveTo(f.x, f.y); ctx.lineTo(f.x + f.w, f.y); }

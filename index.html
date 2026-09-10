@@ -3,16 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#faf7f2">
+<meta name="theme-color" content="#eef7ff">
 <title>cropwizard — frame it once, ship it everywhere</title>
-<script>
-  // A disposable visual branch: the normal URL keeps the shipped theme, while
-  // `?design` opts this page into the experimental token and component layer.
-  if (new URLSearchParams(location.search).has('design')) {
-    document.documentElement.classList.add('design-preview');
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#12161c');
-  }
-</script>
+
 <!-- The app's own crop mark. The SVG is what a tab shows; the PNGs are for the
      places that will not take one, iOS home screens chief among them. All
      vendored, none fetched (DEC-01). -->
@@ -31,7 +24,7 @@
        in the top bar on mobile without existing twice in the markup. -->
   <div class="brand">
     <span class="icon brand-mark" data-icon="crop"></span>
-    <span class="brand-word"><b>crop</b><i>wizard</i></span>
+    <span class="brand-word"><b>Crop</b><i>Wizard</i></span>
     <button id="docsOpen" class="docs-open" type="button"
       aria-controls="docs" aria-expanded="false">Docs</button>
   </div>
@@ -128,6 +121,75 @@
 
   <!-- ---- stage ---- -->
   <main class="stage-col">
+    <div class="stage-toolbar" aria-label="View controls">
+      <div class="stage-tools stage-tools-left">
+        <div class="history-group">
+          <button id="undo" class="stage-tool" type="button" title="Undo (Ctrl+Z)" aria-label="Undo" disabled>
+            <span class="icon" data-icon="undo"></span>
+          </button>
+          <button id="redo" class="stage-tool" type="button" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" disabled>
+            <span class="icon" data-icon="redo"></span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Stage tools, top right: the two things that change what the frame is
+           — whether it has a locked shape at all, and whether you are seeing it
+           at its real size. -->
+        <div id="zoomTool" class="zoom-tool" hidden>
+          <!-- Sharpness is the consequence of the zoom, so it is stated on the
+               control that causes it: push in, watch it fall. Apart, they were
+               two numbers on the same screen with no visible connection. -->
+          <span id="qualityChip" class="chip zoom-quality good"><span class="quality-word">Quality </span><strong id="quality">—</strong></span>
+          <button id="zoomOut" class="zoom-step" type="button" aria-label="Zoom out" title="Zoom out">−</button>
+          <input id="zoomSlider" class="zoom-slider" type="range" min="0" max="1000" step="1" value="0"
+            aria-label="Zoom">
+          <button id="zoomIn" class="zoom-step" type="button" aria-label="Zoom in" title="Zoom in">+</button>
+          <span class="zoom-field">
+            <input id="zoomValue" class="zoom-value" type="text" inputmode="decimal" spellcheck="false"
+              value="100" aria-label="Zoom percentage">
+            <span class="zoom-unit" aria-hidden="true">%</span>
+          </span>
+        </div>
+      <div class="stage-tools">
+        <!-- Freeform belongs to the frame, so it lives with the frame. It
+             overrides the size in the panel rather than replacing it, which is
+             why it is a pressed button and not another size to pick. -->
+        <button id="freeform" class="stage-tool freeform-tool" type="button" aria-pressed="false"
+          title="Crop without a locked aspect ratio"
+          aria-description="Crop without a locked aspect ratio" hidden>
+          <span class="freeform-check" aria-hidden="true">✓</span>
+          <span>Freeform</span>
+        </button>
+        <!-- Three ways to look at the same crop, all on screen at once. A single
+             button had to be labelled with one of them, and whichever it named
+             read as the state you were in about as often as the one you would
+             switch to. None of these touches the crop or the zoom — they change
+             how much of the screen the output rectangle takes up while you
+             decide, and an option that would show you nothing new is dropped
+             from the row rather than sitting there doing nothing. -->
+        <div id="viewMode" class="segmented stage-segmented" role="radiogroup"
+          aria-label="How the frame is shown" hidden>
+          <!-- Two labels, one meaning. The short one is all a phone has room
+               for; the name that is read out is stated on the button so it does
+               not change with the screen. -->
+          <button type="button" role="radio" data-view="small" aria-checked="false"
+            aria-label="Smaller" hidden>
+            <span class="view-long">Smaller</span><span class="view-short">Small</span>
+          </button>
+          <button type="button" role="radio" data-view="true" aria-checked="true"
+            aria-label="True size">
+            <span class="view-long">True size</span><span class="view-short">1:1</span>
+          </button>
+          <button type="button" role="radio" data-view="fit" aria-checked="false"
+            aria-label="Enlarged for editing" hidden>
+            <span class="view-long">Enlarged for editing</span><span class="view-short">Fit</span>
+          </button>
+        </div>
+      </div>
+
+
+    </div>
     <section id="stage" class="stage" aria-label="Framing area">
       <canvas id="canvas" tabindex="0"
         aria-label="Viewfinder. The crop frame is fixed at the centre. Drag to move the image beneath it, scroll to zoom."></canvas>
@@ -193,57 +255,6 @@
       <!-- Stepping back and forth through your edits is a thing you do to the
            work, not a thing you decide about the crop, so it keeps its own
            corner away from the controls that shape the output. -->
-      <div class="stage-tools stage-tools-left">
-        <div class="history-group">
-          <button id="undo" class="stage-tool" type="button" title="Undo (Ctrl+Z)" aria-label="Undo" disabled>
-            <span class="icon" data-icon="undo"></span>
-          </button>
-          <button id="redo" class="stage-tool" type="button" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" disabled>
-            <span class="icon" data-icon="redo"></span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Stage tools, top right: the two things that change what the frame is
-           — whether it has a locked shape at all, and whether you are seeing it
-           at its real size. -->
-      <div class="stage-tools">
-        <!-- Freeform belongs to the frame, so it lives with the frame. It
-             overrides the size in the panel rather than replacing it, which is
-             why it is a pressed button and not another size to pick. -->
-        <button id="freeform" class="stage-tool freeform-tool" type="button" aria-pressed="false"
-          title="Crop without a locked aspect ratio"
-          aria-description="Crop without a locked aspect ratio" hidden>
-          <span class="freeform-check" aria-hidden="true">✓</span>
-          <span>Freeform</span>
-        </button>
-        <!-- Three ways to look at the same crop, all on screen at once. A single
-             button had to be labelled with one of them, and whichever it named
-             read as the state you were in about as often as the one you would
-             switch to. None of these touches the crop or the zoom — they change
-             how much of the screen the output rectangle takes up while you
-             decide, and an option that would show you nothing new is dropped
-             from the row rather than sitting there doing nothing. -->
-        <div id="viewMode" class="segmented stage-segmented" role="radiogroup"
-          aria-label="How the frame is shown" hidden>
-          <!-- Two labels, one meaning. The short one is all a phone has room
-               for; the name that is read out is stated on the button so it does
-               not change with the screen. -->
-          <button type="button" role="radio" data-view="small" aria-checked="false"
-            aria-label="Smaller" hidden>
-            <span class="view-long">Smaller</span><span class="view-short">Small</span>
-          </button>
-          <button type="button" role="radio" data-view="true" aria-checked="true"
-            aria-label="True size">
-            <span class="view-long">True size</span><span class="view-short">1:1</span>
-          </button>
-          <button type="button" role="radio" data-view="fit" aria-checked="false"
-            aria-label="Enlarged for editing" hidden>
-            <span class="view-long">Enlarged for editing</span><span class="view-short">Fit</span>
-          </button>
-        </div>
-      </div>
-
       <!-- Batch framing is a job with a rhythm — position, keep, next — and the
            rhythm has to be visible or people wait for the app to do it for
            them. This is the beat, parked under the frame it belongs to. -->
@@ -275,21 +286,7 @@
              wheel is a coarse instrument — the slider is logarithmic, so every
              step is the same proportion of what you are already at, and the
              field is there for the times you know the number you want. -->
-        <div id="zoomTool" class="zoom-tool" hidden>
-          <!-- Sharpness is the consequence of the zoom, so it is stated on the
-               control that causes it: push in, watch it fall. Apart, they were
-               two numbers on the same screen with no visible connection. -->
-          <span id="qualityChip" class="chip zoom-quality good"><span class="quality-word">Quality </span><strong id="quality">—</strong></span>
-          <button id="zoomOut" class="zoom-step" type="button" aria-label="Zoom out" title="Zoom out">−</button>
-          <input id="zoomSlider" class="zoom-slider" type="range" min="0" max="1000" step="1" value="0"
-            aria-label="Zoom">
-          <button id="zoomIn" class="zoom-step" type="button" aria-label="Zoom in" title="Zoom in">+</button>
-          <span class="zoom-field">
-            <input id="zoomValue" class="zoom-value" type="text" inputmode="decimal" spellcheck="false"
-              value="100" aria-label="Zoom percentage">
-            <span class="zoom-unit" aria-hidden="true">%</span>
-          </span>
-        </div>
+
       </div>
 
       <div class="drop-veil"><span>Drop to load — one image, or the whole stack</span></div>
@@ -341,20 +338,20 @@
       </button>
       <p id="sizeNote" class="note">Search by name, pixels or shape.</p>
 
-      <div class="scale-row">
-        <span id="scaleLabel" class="field-label">Quick export</span>
-        <div id="scaleGroup" class="segmented" role="radiogroup" aria-labelledby="scaleLabel">
-          <button type="button" role="radio" data-scale="1" aria-checked="true">1×</button>
-          <button type="button" role="radio" data-scale="2" aria-checked="false">2×</button>
-          <button type="button" role="radio" data-scale="4" aria-checked="false">4×</button>
-        </div>
-      </div>
       <div class="manual-size-row" aria-label="Export dimensions">
         <label>Max width <span><input id="exportWidth" type="number" inputmode="numeric" min="1" step="1"> px</span></label>
         <span class="manual-size-lock" aria-hidden="true">×</span>
         <label>Max height <span><input id="exportHeight" type="number" inputmode="numeric" min="1" step="1"> px</span></label>
       </div>
       <p id="manualSizeWarning" class="manual-size-warning" role="status" hidden></p>
+      <div class="scale-row">
+        <span id="scaleLabel" class="field-label">Scale</span>
+        <div id="scaleGroup" class="segmented" role="radiogroup" aria-labelledby="scaleLabel">
+          <button type="button" role="radio" data-scale="1" aria-checked="true">1×</button>
+          <button type="button" role="radio" data-scale="2" aria-checked="false">2×</button>
+          <button type="button" role="radio" data-scale="4" aria-checked="false">4×</button>
+        </div>
+      </div>
       <p id="scaleNote" class="note"></p>
     </section>
 
@@ -375,8 +372,8 @@
     <section class="block">
       <h2>File options</h2>
       <div id="naming" class="naming">
-        <label><input id="nameKeep" type="checkbox" checked> <span>Keep the original name</span></label>
-        <label><input id="nameSize" type="checkbox" checked> <span>Add the size</span></label>
+        <label><input id="nameKeep" type="checkbox" checked> <span>Keep original name</span></label>
+        <label><input id="nameSize" type="checkbox" checked> <span>Add size to filename</span></label>
         <label><input id="nameNumber" type="checkbox"> <span>Number them</span></label>
       </div>
       <p id="namePreview" class="preview" aria-live="polite">—</p>
@@ -416,7 +413,7 @@
   aria-labelledby="docsTitle" aria-hidden="true" hidden>
   <header class="docs-bar">
     <button id="docsClose" class="docs-back" type="button">← Back to app</button>
-    <span class="docs-brand"><b>crop</b><i>wizard</i></span>
+    <span class="docs-brand"><b>Crop</b><i>Wizard</i></span>
     <span class="docs-slash" aria-hidden="true">/</span>
     <span class="docs-page">Documentation</span>
   </header>
