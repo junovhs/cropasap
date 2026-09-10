@@ -1,4 +1,4 @@
-/* CropWizard's design tokens, aliased onto the dopedocs contract.
+/* CropASAP's design tokens, aliased onto the dopedocs contract.
    The in-app panel gets these from styles.css; the static /docs pages load
    only what they link, so they need their own copy with literal values.
    Keep in step with the :root block in src/styles.css. */

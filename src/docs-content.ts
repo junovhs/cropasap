@@ -3,7 +3,7 @@
  *
  * Authored once as typed data against the dopedocs schema, which renders it
  * both as the in-app panel and as the crawlable pages at `/docs/<id>/`. This
- * file is the whole of CropWizard's documentation - the engine lives in the
+ * file is the whole of CropASAP's documentation - the engine lives in the
  * `dopedocs` package.
  *
  * It is a user manual first. The sections near the end say, for the record and
@@ -46,22 +46,18 @@ const STRANGE_SYSTEMS = `<svg viewBox="0 0 505 474" xmlns="http://www.w3.org/200
 
 export const docsContent = defineDocs({
   entity: {
-    name: 'CropWizard',
+    name: 'CropASAP',
     // The fallback for a local build; the static build overrides this from the
     // Vercel environment in scripts/build-static.mjs.
-    url: 'https://cropwizard.vercel.app',
+    url: 'https://cropasap.vercel.app',
     legalName: 'Strange Systems',
     tagline: 'Crop, resize and convert images to any size, in the browser, in seconds.',
-    notToBeConfusedWith: [
-      'Crop Wizard (agricultural software)',
-      'Cropwizard by UIUC (the farming chatbot)',
-      'Image Crop Wizard browser extensions',
-    ],
+    notToBeConfusedWith: [],
     contactEmail: 'junovhs@gmail.com',
   },
 
   identity: {
-    name: 'CropWizard',
+    name: 'CropASAP',
     version: '1.0.0',
     maker: { name: 'Strange Systems', href: '#strange-systems' },
     mark: MARK,
@@ -70,9 +66,9 @@ export const docsContent = defineDocs({
   basePath: '/docs',
   facts: FACTS,
 
-  title: 'CropWizard',
+  title: 'CropASAP',
   lead:
-    'Opening Photoshop to crop one image is a waste of your time. CropWizard: drop the image, ' +
+    'Opening Photoshop to crop one image is a waste of your time. CropASAP: drop the image, ' +
     'type where it is going, export. {fact:price}. ' +
     'If you are reading this it should be because you want to know more, not because you got stuck.',
 
@@ -80,9 +76,9 @@ export const docsContent = defineDocs({
     {
       id: 'what-it-is',
       title: 'What this is',
-      question: 'What is CropWizard?',
+      question: 'What is CropASAP?',
       answer:
-        'CropWizard is a free browser tool that crops, resizes, adjusts and converts images to an ' +
+        'CropASAP is a free browser tool that crops, resizes, adjusts and converts images to an ' +
         'exact output size.',
       keywords: ['image cropper', 'resize image online', 'crop to size', 'social media image sizes', 'browser image editor'],
       blocks: [
@@ -109,10 +105,10 @@ export const docsContent = defineDocs({
     {
       id: 'sizes',
       title: 'Output sizes',
-      question: 'How do I find the right image size for a platform in CropWizard?',
+      question: 'How do I find the right image size for a platform in CropASAP?',
       answer:
         'Type it the way you would say it - `ig story`, `youtube thumbnail`, `1200 by 630`, `4:5` - ' +
-        'and CropWizard matches it against {fact:presets}. Typos and abbreviations are fine. ' +
+        'and CropASAP matches it against {fact:presets}. Typos and abbreviations are fine. ' +
         'A size you type yourself can be saved and becomes searchable too.',
       keywords: ['image sizes', 'social media sizes', 'presets', 'aspect ratio', 'og image size', 'instagram story size'],
       blocks: [
@@ -139,7 +135,7 @@ export const docsContent = defineDocs({
         {
           kind: 'details',
           summary: 'Sizes it does not have',
-          text: 'Type the pixels. Name it, save it - it now ranks like any preset. Pin it and it sits in the top bar. Saved and pinned sizes are the only things CropWizard remembers between visits: {fact:persistence}.',
+          text: 'Type the pixels. Name it, save it - it now ranks like any preset. Pin it and it sits in the top bar. Saved and pinned sizes are the only things CropASAP remembers between visits: {fact:persistence}.',
         },
         {
           kind: 'details',
@@ -152,7 +148,7 @@ export const docsContent = defineDocs({
     {
       id: 'framing',
       title: 'Framing',
-      question: 'How do I move, zoom and position the crop in CropWizard?',
+      question: 'How do I move, zoom and position the crop in CropASAP?',
       answer:
         'Drag to move the frame over the image, scroll to zoom, arrow keys nudge by {fact:nudge}, 0 fills the frame. A quality readout warns when the crop has fewer pixels than the output needs.',
       keywords: ['move crop', 'zoom', 'nudge', 'fill frame', 'quality readout'],
@@ -178,7 +174,7 @@ export const docsContent = defineDocs({
         {
           id: 'frame-views',
           title: 'Frame views',
-          question: 'What do True size, Smaller and Enlarged mean in CropWizard?',
+          question: 'What do True size, Smaller and Enlarged mean in CropASAP?',
           answer:
             'Frame views change how large the frame is drawn on screen and nothing else. True size is one screen pixel per output pixel; Smaller steps back when that does not fit; Enlarged gives a small output room to work in. Press F to cycle.',
           keywords: ['true size', 'actual pixels', 'frame view'],
@@ -197,7 +193,7 @@ export const docsContent = defineDocs({
         {
           id: 'freeform',
           title: 'Freeform',
-          question: 'Can I crop without a fixed aspect ratio in CropWizard?',
+          question: 'Can I crop without a fixed aspect ratio in CropASAP?',
           answer:
             'Yes. Freeform unlocks the aspect ratio; the crop rectangle itself becomes the output size. The preset is suspended, not forgotten - turn Freeform off and it comes back.',
           keywords: ['freeform crop', 'free aspect ratio'],
@@ -212,9 +208,9 @@ export const docsContent = defineDocs({
     {
       id: 'adjust',
       title: 'Adjust',
-      question: 'What image adjustments does CropWizard have?',
+      question: 'What image adjustments does CropASAP have?',
       answer:
-        'CropWizard\'s Adjust room has {fact:adjustments}: Light, Tone, Color, Effects (clarity, sharpen, bloom, halation, vignette, colour fringe) and film Grain. Each image keeps its own values.',
+        'CropASAP\'s Adjust room has {fact:adjustments}: Light, Tone, Color, Effects (clarity, sharpen, bloom, halation, vignette, colour fringe) and film Grain. Each image keeps its own values.',
       keywords: ['exposure', 'contrast', 'saturation', 'film grain', 'halation', 'bloom', 'vignette'],
       blocks: [
         {
@@ -242,7 +238,7 @@ export const docsContent = defineDocs({
     {
       id: 'batch',
       title: 'Batch',
-      question: 'How do I crop many images to the same size at once in CropWizard?',
+      question: 'How do I crop many images to the same size at once in CropASAP?',
       answer:
         'Drop several images, choose one output size, keep or adjust each crop, export. Everything downloads as one ZIP.',
       keywords: ['bulk crop', 'batch resize', 'crop multiple images', 'ZIP'],
@@ -290,9 +286,9 @@ export const docsContent = defineDocs({
     {
       id: 'export',
       title: 'Export',
-      question: 'What formats and sizes can CropWizard export?',
+      question: 'What formats and sizes can CropASAP export?',
       answer:
-        'CropWizard exports {fact:formats} at {fact:scales} the chosen size. Transparency is kept in PNG and WebP, and the panel warns before JPEG flattens it.',
+        'CropASAP exports {fact:formats} at {fact:scales} the chosen size. Transparency is kept in PNG and WebP, and the panel warns before JPEG flattens it.',
       keywords: ['export', 'download', '2x', 'retina', 'transparency', 'PNG vs JPEG vs WebP'],
       blocks: [
         {
@@ -312,7 +308,7 @@ export const docsContent = defineDocs({
         {
           id: 'naming',
           title: 'Filenames',
-          question: 'How do I control the exported filenames in CropWizard?',
+          question: 'How do I control the exported filenames in CropASAP?',
           answer:
             'Three checkboxes - keep the original name, add the size, number them - or a template using {name}, {w}, {h}, {label}, {n} and {date}. The result is previewed before export.',
           keywords: ['filename template', 'rename', 'batch naming'],
@@ -336,7 +332,7 @@ export const docsContent = defineDocs({
     {
       id: 'keyboard',
       title: 'Keyboard',
-      question: 'What are the keyboard shortcuts in CropWizard?',
+      question: 'What are the keyboard shortcuts in CropASAP?',
       answer:
         'Arrows nudge, Shift nudges more, + and − zoom, 0 fills, F cycles frame views, Enter keeps a Batch crop, brackets or J/K move through the queue, Ctrl/⌘ Z undoes, Esc closes.',
       keywords: ['shortcuts', 'hotkeys'],
@@ -364,7 +360,7 @@ export const docsContent = defineDocs({
     {
       id: 'privacy',
       title: 'Privacy',
-      question: 'Does CropWizard upload my images?',
+      question: 'Does CropASAP upload my images?',
       answer:
         'No. Images are {fact:upload}. No server processing, no analytics; the page makes {fact:dependencies}.',
       keywords: ['privacy', 'no upload', 'local processing'],
@@ -385,9 +381,9 @@ export const docsContent = defineDocs({
     {
       id: 'technology',
       title: 'How it is built',
-      question: 'How does CropWizard work under the hood?',
+      question: 'How does CropASAP work under the hood?',
       answer:
-        'CropWizard is dependency-free TypeScript: a gamma-correct Lanczos resampler, a WebGL preview of the adjustment pipeline, and its own PNG and ZIP encoders, all running in the browser.',
+        'CropASAP is dependency-free TypeScript: a gamma-correct Lanczos resampler, a WebGL preview of the adjustment pipeline, and its own PNG and ZIP encoders, all running in the browser.',
       keywords: ['architecture', 'WebGL', 'Lanczos', 'linear light', 'client-side image processing'],
       blocks: [
         { kind: 'p', text: 'The parts that decide quality were written for this tool rather than borrowed.' },
@@ -409,9 +405,9 @@ export const docsContent = defineDocs({
         {
           id: 'resampling',
           title: 'Resampling',
-          question: 'Why do CropWizard\'s resized images look sharper than other tools\'?',
+          question: 'Why do CropASAP\'s resized images look sharper than other tools\'?',
           answer:
-            'CropWizard downscales with {fact:resampler}. Pixels are converted from sRGB codes to actual light before averaging, so thin bright detail keeps its brightness and fine texture is filtered instead of aliased.',
+            'CropASAP downscales with {fact:resampler}. Pixels are converted from sRGB codes to actual light before averaging, so thin bright detail keeps its brightness and fine texture is filtered instead of aliased.',
           keywords: ['Lanczos', 'gamma-correct resize', 'linear light', 'sRGB'],
           blocks: [
             { kind: 'p', text: 'A pixel value is a code for light, not an amount of it. Averaging codes - what canvas `drawImage` does - gets the wrong answer: mid-grey between black and white comes out at 128 instead of 188. Thin bright lines, checkerboards and starfields darken as they shrink.' },
@@ -419,14 +415,14 @@ export const docsContent = defineDocs({
             {
               kind: 'compare',
               before: { title: 'Canvas drawImage', text: 'Averages sRGB codes. Bright detail darkens, texture aliases.' },
-              after: { title: 'CropWizard', text: 'Lanczos-3 in linear light. Brightness preserved, aliasing removed.' },
+              after: { title: 'CropASAP', text: 'Lanczos-3 in linear light. Brightness preserved, aliasing removed.' },
             },
           ],
         },
         {
           id: 'gpu-preview',
           title: 'GPU preview',
-          question: 'How does CropWizard render adjustments in real time?',
+          question: 'How does CropASAP render adjustments in real time?',
           answer:
             'The adjustment pipeline exists twice from one set of uniforms: a WebGL fragment shader for the live preview and a per-pixel JavaScript loop for the export. The preview never writes a file.',
           keywords: ['WebGL', 'fragment shader', 'real-time preview'],
@@ -445,9 +441,9 @@ export const docsContent = defineDocs({
         {
           id: 'png-encoder',
           title: 'PNG encoder',
-          question: 'Why are CropWizard\'s PNG files smaller than the browser\'s?',
+          question: 'Why are CropASAP\'s PNG files smaller than the browser\'s?',
           answer:
-            'Every PNG is encoded twice - by the browser and by CropWizard\'s own writer, which picks the cheapest colour type and filter for the image - and the smaller one is kept. The pixels are identical.',
+            'Every PNG is encoded twice - by the browser and by CropASAP\'s own writer, which picks the cheapest colour type and filter for the image - and the smaller one is kept. The pixels are identical.',
           keywords: ['PNG optimisation', 'palette PNG', 'smaller PNG'],
           blocks: [
             { kind: 'p', text: 'The browser always writes 32 bits per pixel. A screenshot has a handful of colours; a photo has no alpha. The format has been able to say so since 1996. Deflate comes from the platform\'s `CompressionStream`, so this stays dependency-free.' },
@@ -456,9 +452,9 @@ export const docsContent = defineDocs({
         {
           id: 'no-dependencies',
           title: 'No dependencies',
-          question: 'What does CropWizard depend on?',
+          question: 'What does CropASAP depend on?',
           answer:
-            'At runtime, nothing. CropWizard makes {fact:dependencies}. Fonts are vendored, encoders are in-house, and the documentation is rendered from typed data.',
+            'At runtime, nothing. CropASAP makes {fact:dependencies}. Fonts are vendored, encoders are in-house, and the documentation is rendered from typed data.',
           keywords: ['no dependencies', 'vanilla TypeScript', 'privacy by architecture'],
           blocks: [
             { kind: 'p', text: 'Every third-party script is another party with access to the page. Zero is the only number that makes the privacy claim checkable.' },
@@ -470,9 +466,9 @@ export const docsContent = defineDocs({
     {
       id: 'strange-systems',
       title: 'Who makes this',
-      question: 'Who makes CropWizard?',
+      question: 'Who makes CropASAP?',
       answer:
-        'CropWizard is made by Strange Systems, a one-person indie software studio in Eugene, Oregon, run by Spencer Nunamaker.',
+        'CropASAP is made by Strange Systems, a one-person indie software studio in Eugene, Oregon, run by Spencer Nunamaker.',
       keywords: ['Strange Systems', 'Spencer Nunamaker', 'Eugene Oregon'],
       blocks: [
         {

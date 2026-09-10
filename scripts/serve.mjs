@@ -46,5 +46,5 @@ createServer((req, res) => {
   });
   createReadStream(file).pipe(res);
 }).listen(port, () => {
-  console.log(`cropwizard: http://localhost:${port}/`);
+  console.log(`cropasap: http://localhost:${port}/`);
 });

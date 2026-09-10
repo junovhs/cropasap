@@ -154,7 +154,7 @@ export async function convertAndDownload(
   const { delivery, filename } = await deliver(files, async () => {
     const zip = await makeZip(files);
     zipSize = zip.size;
-    return { blob: zip, name: `${sanitize(`cropwizard ${FORMATS[options.format].label}`)}.zip` };
+    return { blob: zip, name: `${sanitize(`cropasap ${FORMATS[options.format].label}`)}.zip` };
   });
   // When a ZIP was written its own size is what landed, not the sum of what
   // went into it; shared or single files report the bytes themselves.

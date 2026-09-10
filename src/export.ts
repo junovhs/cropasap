@@ -350,7 +350,7 @@ export async function exportAll(
   const out = scaledTarget(target, options.scale);
   const { delivery, filename } = await deliver(files, async () => ({
     blob: await makeZip(files),
-    name: `${sanitize(`cropwizard ${options.label}`)}-${out.w}x${out.h}.zip`,
+    name: `${sanitize(`cropasap ${options.label}`)}-${out.w}x${out.h}.zip`,
   }));
   return { filename, count: files.length, delivery };
 }

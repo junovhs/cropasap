@@ -1,4 +1,4 @@
-# CropWizard — TypeScript edition
+# CropASAP — TypeScript edition
 
 A dependency-light browser image cropper written in strict TypeScript. The runtime remains framework-free and uses native canvas, DOM, Blob, and File APIs.
 

@@ -7,7 +7,9 @@
 
 import type { PinnedSize } from './domain/types.js';
 
-const KEY = 'cropwizard.pinned';
+const KEY = 'cropasap.pinned';
+// Written before the rename to CropASAP; read once so pinned sizes survive it.
+const LEGACY_KEY = 'cropwizard.pinned';
 const MAX_PINS = 8;
 
 /** A pin's identity: its rounded pixels, so one rectangle is one pin. */
@@ -26,7 +28,7 @@ function isPinnedSize(value: unknown): value is PinnedSize {
 
 function read(): PinnedSize[] {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(KEY) ?? localStorage.getItem(LEGACY_KEY);
     if (!raw) return [];
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];

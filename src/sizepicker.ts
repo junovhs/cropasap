@@ -6,7 +6,9 @@ import { loadPinned, isPinned, togglePinned } from './pinned.js';
 import { icon } from './icons.js';
 import type { Dimensions, PinnedSize, SavedSize, SizeResult } from './domain/types.js';
 
-const RECENTS_KEY = 'cropwizard.recents';
+const RECENTS_KEY = 'cropasap.recents';
+// Written before the rename to CropASAP; read once so recents survive it.
+const LEGACY_RECENTS_KEY = 'cropwizard.recents';
 const MAX_RECENTS = 5;
 
 /** A size waiting to be told what it is called, so it can go on the top bar. */
@@ -54,7 +56,7 @@ export interface SizePickerOpenOptions {
 
 const loadRecents = (): string[] => {
   try {
-    const raw = localStorage.getItem(RECENTS_KEY);
+    const raw = localStorage.getItem(RECENTS_KEY) ?? localStorage.getItem(LEGACY_RECENTS_KEY);
     if (!raw) return [];
     const parsed: unknown = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed.filter((value): value is string => typeof value === 'string') : [];

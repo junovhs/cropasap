@@ -2,7 +2,9 @@
 
 import type { SavedSize } from './domain/types.js';
 
-const KEY = 'cropwizard.saved';
+const KEY = 'cropasap.saved';
+// Written before the rename to CropASAP; read once so saved sizes survive it.
+const LEGACY_KEY = 'cropwizard.saved';
 
 function isSavedSize(value: unknown): value is SavedSize {
   if (!value || typeof value !== 'object') return false;
@@ -17,7 +19,7 @@ function isSavedSize(value: unknown): value is SavedSize {
 
 function read(): SavedSize[] {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(KEY) ?? localStorage.getItem(LEGACY_KEY);
     if (!raw) return [];
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
