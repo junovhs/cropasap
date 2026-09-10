@@ -7,6 +7,7 @@ import {
 } from '../export.js';
 import { FREEFORM_LABEL, exportItems } from '../application/freeform.js';
 import { requiredElement, requiredElements } from '../infrastructure/dom.js';
+import { alphaOf } from '../infrastructure/alpha.js';
 import type {
   AppState,
   ExportFormat,
@@ -31,6 +32,8 @@ export interface ExportPanelOptions {
 export interface ExportPanelController {
   sync(): void;
   getScale(): ExportScale;
+  /** Moves off a format that would flatten transparency. True if it moved. */
+  keepAlpha(): boolean;
 }
 
 export function createExportPanel({
@@ -58,6 +61,7 @@ export function createExportPanel({
   const exportFill = $<HTMLElement>('#exportFill');
   const exportLabel = $<HTMLElement>('#exportLabel');
   const exportNote = $<HTMLElement>('#exportNote');
+  const alphaNote = $<HTMLElement>('#alphaNote');
   const templateInput = $<HTMLInputElement>('#template');
   const qualityInput = $<HTMLInputElement>('#qualityInput');
   const widthInput = $<HTMLInputElement>('#exportWidth');
@@ -98,6 +102,15 @@ export function createExportPanel({
       ext: FORMATS[options.format].ext,
       label: target.label,
     });
+
+    // A transparent picture written to a format with no alpha channel comes
+    // out on white. Said here, beside the choice, rather than discovered later.
+    const transparent = items.filter((item) => alphaOf(item.image).transparent).length;
+    const flattens = transparent > 0 && !FORMATS[options.format].alpha;
+    alphaNote.hidden = !flattens;
+    alphaNote.textContent = flattens
+      ? `${transparent > 1 ? `${transparent} of these images have` : 'This image has'} transparency — ${FORMATS[options.format].label} will fill it with white. Choose PNG or WebP to keep it.`
+      : '';
 
     const pending = items.filter((item) => !item.approved).length;
     exportNote.textContent = !count
@@ -279,5 +292,10 @@ export function createExportPanel({
       syncScale();
     },
     getScale: () => options.scale,
+    keepAlpha(): boolean {
+      if (FORMATS[options.format].alpha) return false;
+      setFormat('png');
+      return true;
+    },
   };
 }

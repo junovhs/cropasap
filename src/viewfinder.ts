@@ -18,6 +18,7 @@ import { resizeFree } from './application/freeform.js';
 import { frameFit, type FrameView } from './application/frame-view.js';
 import { handleAt, type FrameHandle } from './application/handles.js';
 import { canvasContext } from './infrastructure/dom.js';
+import { alphaOf } from './infrastructure/alpha.js';
 import { sourceDimensions } from './infrastructure/image-decoder.js';
 import type { Adjustment, Framing } from './domain/types.js';
 
@@ -32,6 +33,9 @@ const GHOST_IDLE = 0;         // at rest the discarded image is gone entirely
 const GHOST_HOVER = 0.12;     // ...until the cursor is over it, then faintly back
 const GHOST_ACTIVE = 0.34;    // ...and how much it lifts while you work
 const GHOST_BEAT = 260;       // ms the lifted ghost holds after the frame lands
+const CHECKER_CELL = 12;                          // CSS px per checker square
+const CHECKER_LIGHT = ['#ffffff', '#d9dee6'];     // the design-app default
+const CHECKER_DARK = ['#8a8f99', '#6e737d'];      // ...and the one a light picture needs
 const FRAME_PAD = 76;         // most breathing room between frame and stage edge
 const FRAME_PAD_MIN = 22;     // ...and the least, once the stage is a phone
 const FRAME_PAD_SHARE = 0.085; // in between, a share of the smaller dimension
@@ -108,6 +112,33 @@ export function createViewfinder(
   const ctx = canvasContext(canvas);
 
   let image: HTMLImageElement | null = null;
+
+  // The checkerboard a transparent picture sits on, the way a design app shows
+  // one. Two boards: the usual light one, and a darker one for a picture that
+  // is itself mostly light — a white logo vanishes into a white-and-grey board.
+  const checkers = new Map<string, CanvasPattern>();
+  function checker(dark: boolean): CanvasPattern | null {
+    const key = `${dark}:${dpr}`;
+    const known = checkers.get(key);
+    if (known) return known;
+    const cell = CHECKER_CELL * dpr;
+    const tile = document.createElement('canvas');
+    tile.width = tile.height = cell * 2;
+    const t = tile.getContext('2d');
+    if (!t) return null;
+    const [a, b] = dark ? CHECKER_DARK : CHECKER_LIGHT;
+    t.fillStyle = a;
+    t.fillRect(0, 0, cell * 2, cell * 2);
+    t.fillStyle = b;
+    t.fillRect(0, 0, cell, cell);
+    t.fillRect(cell, cell, cell, cell);
+    const pattern = ctx.createPattern(tile, 'repeat');
+    if (!pattern) return null;
+    // The tile is in device pixels; the context draws in CSS pixels.
+    pattern.setTransform(new DOMMatrix().scale(1 / dpr));
+    checkers.set(key, pattern);
+    return pattern;
+  }
   // The look on the stage. `preview` is the GPU route — the same maths the file
   // gets, at frame rate. Where there is no WebGL the same pipeline runs on the
   // CPU into `slow`, at a resolution chosen so a dragging finger still gets
@@ -416,11 +447,21 @@ export function createViewfinder(
       ctx.globalAlpha = 1;
     }
 
-    // 2. the same image again at full strength, clipped to the frame.
+    // 2. the same image again at full strength, clipped to the frame. A
+    // transparent picture gets its checkerboard first, only where the picture
+    // itself is: the paper around it stays paper.
     ctx.save();
     ctx.beginPath();
     ctx.rect(f.x, f.y, f.w, f.h);
     ctx.clip();
+    const alpha = alphaOf(image);
+    if (alpha.transparent) {
+      const board = checker(alpha.light);
+      if (board) {
+        ctx.fillStyle = board;
+        ctx.fillRect(tx.v, ty.v, w, h);
+      }
+    }
     ctx.drawImage(paint, tx.v, ty.v, w, h);
     ctx.restore();
 

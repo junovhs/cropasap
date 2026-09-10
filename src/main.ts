@@ -3,6 +3,7 @@ import { docsContent } from './docs-content.js';
 // Wiring: intake, the viewfinder, the readouts, and the keyboard.
 
 import { store, createItem, activeItem } from './state.js';
+import { alphaOf } from './infrastructure/alpha.js';
 import { createViewfinder, type FrameView } from './viewfinder.js';
 import { createSizePicker } from './sizepicker.js';
 import { createFilmstrip } from './filmstrip.js';
@@ -687,6 +688,12 @@ async function intake(fileList: FileList | readonly File[]): Promise<void> {
     applyFreeformSize(source.width, source.height);
   }
   else if (!sizeChosen) adoptImageSize(items[0]);
+
+  // Transparency arrived with the picture, so it should leave with it: a JPEG
+  // default would quietly flatten it onto white.
+  if (items.some((item) => alphaOf(item.image).transparent) && exportPanel?.keepAlpha()) {
+    showNotice('Switched to PNG to keep the transparency.');
+  }
 
   const s = store.get();
   items = items.map((item) => suggestFrame(item, s.target));

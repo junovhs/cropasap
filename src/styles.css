@@ -2211,7 +2211,8 @@ button.ghost:hover:not(:disabled), .nav-item:hover:not(:disabled) { background: 
 .export-button .icon { width: 25px; height: 25px; }
 .build-id { font-size: 9px; }
 @media (min-width: 901px) {
-  body { padding: clamp(12px, 1.75vw, 28px); }
+  /* A white band above; the rail and panel run to the window's edges. */
+  body { padding: clamp(12px, 1.75vw, 28px) 0 0; }
   .app { overflow: hidden; background: var(--bg); }
   .brand { position: relative; }
 }
@@ -2292,3 +2293,5 @@ button.ghost:hover:not(:disabled), .nav-item:hover:not(:disabled) { background: 
 .brand-home:hover .brand-hint, .brand-home:focus-visible .brand-hint { opacity: 1; }
 :root { --dd-bg: #fff; --dd-panel-muted: #fff; --dd-ink: var(--ink); --dd-text: var(--ink-2); --dd-text-soft: var(--ink-3); --dd-muted: var(--ink-3); --dd-line: var(--line); --dd-line-soft: var(--line-soft); --dd-edge: var(--edge); --dd-accent: var(--accent); --dd-sans: var(--font-ui); --dd-mono: var(--font-mono); }
 @media (prefers-reduced-motion: reduce) { .brand-home .brand-mark, .brand-credit, .brand-hint { transition: none; } }
+.alpha-note { color: var(--accent-2); font-weight: 500; }
+.alpha-note[hidden] { display: none; }
