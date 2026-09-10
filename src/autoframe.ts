@@ -4,7 +4,10 @@ import type { Framing } from './domain/types.js';
 import { canvasContext } from './infrastructure/dom.js';
 
 const SAMPLE = 96;
-const CENTRE_BIAS = 0.35;
+// A tie-breaker, not a preference: the window has to earn its move.
+const CENTRE_BIAS = 0.06;
+// How much a pixel's difference from the picture's mean colour counts beside an edge.
+const DISTINCT_WEIGHT = 0.6;
 
 interface EnergyMap {
   readonly energy: Float32Array;
@@ -46,23 +49,54 @@ function energyMap(image: CanvasImageSource): EnergyMap | null {
     return null;
   }
 
+  // Two questions per pixel. Is it an edge — not the fine grain of water or
+  // foliage, which is everywhere and says nothing, but a change that survives
+  // a blur? And is it a colour the picture as a whole is not — a white hull
+  // against blue water, a red coat against green? Saturation on its own was
+  // wrong here: it rewarded the water over the ship.
+  const r = new Float32Array(w * h);
+  const g = new Float32Array(w * h);
+  const bl = new Float32Array(w * h);
+  let meanR = 0, meanG = 0, meanB = 0;
+  for (let index = 0, pixel = 0; index < r.length; index += 1, pixel += 4) {
+    r[index] = data[pixel] ?? 0;
+    g[index] = data[pixel + 1] ?? 0;
+    bl[index] = data[pixel + 2] ?? 0;
+    meanR += r[index] ?? 0; meanG += g[index] ?? 0; meanB += bl[index] ?? 0;
+  }
+  meanR /= r.length; meanG /= r.length; meanB /= r.length;
+
+  // Luminance, box-blurred 3×3 so a wave crest is not an edge.
   const luminance = new Float32Array(w * h);
-  const saturation = new Float32Array(w * h);
-  for (let index = 0, pixel = 0; index < luminance.length; index += 1, pixel += 4) {
-    const red = data[pixel] ?? 0;
-    const green = data[pixel + 1] ?? 0;
-    const blue = data[pixel + 2] ?? 0;
-    luminance[index] = 0.299 * red + 0.587 * green + 0.114 * blue;
-    saturation[index] = (Math.max(red, green, blue) - Math.min(red, green, blue)) / 255;
+  for (let index = 0; index < luminance.length; index += 1) {
+    luminance[index] = 0.299 * (r[index] ?? 0) + 0.587 * (g[index] ?? 0) + 0.114 * (bl[index] ?? 0);
+  }
+  const smooth = new Float32Array(w * h);
+  for (let y = 0; y < h; y += 1) {
+    for (let x = 0; x < w; x += 1) {
+      let sum = 0, n = 0;
+      for (let dy = -1; dy <= 1; dy += 1) {
+        for (let dx = -1; dx <= 1; dx += 1) {
+          const yy = y + dy, xx = x + dx;
+          if (yy < 0 || yy >= h || xx < 0 || xx >= w) continue;
+          sum += luminance[yy * w + xx] ?? 0; n += 1;
+        }
+      }
+      smooth[y * w + x] = sum / n;
+    }
   }
 
   const energy = new Float32Array(w * h);
   for (let y = 1; y < h - 1; y += 1) {
     for (let x = 1; x < w - 1; x += 1) {
       const index = y * w + x;
-      const dx = Math.abs((luminance[index - 1] ?? 0) - (luminance[index + 1] ?? 0));
-      const dy = Math.abs((luminance[index - w] ?? 0) - (luminance[index + w] ?? 0));
-      energy[index] = dx + dy + (saturation[index] ?? 0) * 40;
+      const dx = Math.abs((smooth[index - 1] ?? 0) - (smooth[index + 1] ?? 0));
+      const dy = Math.abs((smooth[index - w] ?? 0) - (smooth[index + w] ?? 0));
+      // Squared, so a few strong edges outweigh a field of faint ones.
+      const edge = (dx * dx + dy * dy) / 255;
+      const dr = (r[index] ?? 0) - meanR, dg = (g[index] ?? 0) - meanG, db = (bl[index] ?? 0) - meanB;
+      const distinct = Math.sqrt(dr * dr + dg * dg + db * db);
+      energy[index] = edge + distinct * DISTINCT_WEIGHT;
     }
   }
   return { energy, w, h };
