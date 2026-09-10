@@ -28,7 +28,8 @@ const CPU_BUDGET = 60;  // ms of pixel work a moving slider can afford
 const CPU_MIN = 320;
 const CPU_MAX = 1400;
 const CPU_START = 640;
-const GHOST_IDLE = 0.12;      // what you keep seeing of the discarded image
+const GHOST_IDLE = 0;
+const GHOST_HOVER = 0.12;      // what you keep seeing of the discarded image
 const GHOST_ACTIVE = 0.34;    // ...and how much it lifts while you work
 const FRAME_PAD = 76;         // most breathing room between frame and stage edge
 const FRAME_PAD_MIN = 22;     // ...and the least, once the stage is a phone
@@ -745,6 +746,13 @@ export function createViewfinder(
     if (pointers.has(e.pointerId)) pointers.set(e.pointerId, point);
 
     if (pointers.size === 0) {
+      const f = frameRect();
+      const size = sourceDimensions(image);
+      const overImage = point.x >= tx.v && point.x <= tx.v + size.width * scale.v
+        && point.y >= ty.v && point.y <= ty.v + size.height * scale.v;
+      const outside = point.x < f.x || point.x > f.x + f.w || point.y < f.y || point.y > f.y + f.h;
+      ghost.set(e.pointerType === 'mouse' && overImage && outside ? GHOST_HOVER : GHOST_IDLE);
+      loop.kick();
       const next = hitTest(point, e.pointerType !== 'mouse');
       if (next !== hoverHandle) {
         hoverHandle = next;
@@ -882,6 +890,9 @@ export function createViewfinder(
 
   canvas.addEventListener('pointerdown', onPointerDown);
   canvas.addEventListener('pointermove', onPointerMove);
+  canvas.addEventListener('pointerleave', () => {
+    if (!pointers.size) { ghost.set(GHOST_IDLE); loop.kick(); }
+  });
   canvas.addEventListener('pointerup', onPointerUp);
   canvas.addEventListener('pointercancel', onPointerUp);
   canvas.addEventListener('wheel', onWheel, { passive: false });

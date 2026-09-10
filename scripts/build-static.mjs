@@ -1,3 +1,4 @@
+import { build } from 'esbuild';
 // Copies the non-TypeScript assets into dist/. Node-only so it behaves the
 // same on Windows (npm runs scripts through cmd.exe) as it does on a shell.
 import { cpSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -41,3 +42,8 @@ writeIcon('dist/src/apple-touch-icon.png', 180);
 // Vendored typefaces (DEC-01: no third-party requests at runtime). The licence
 // travels with them, so the whole directory is copied rather than the woff2s.
 cpSync('src/fonts', 'dist/src/fonts', { recursive: true });
+
+// Bundle the browser entry so Dopedocs package imports resolve in production.
+await build({ entryPoints: ['src/main.ts'], outfile: 'dist/src/main.js', bundle: true, format: 'esm', target: 'es2022' });
+mkdirSync('dist/docs', { recursive: true });
+cpSync('node_modules/dopedocs/styles/dopedocs.css', 'dist/docs/dopedocs.css');

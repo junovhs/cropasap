@@ -15,6 +15,10 @@
     "check": "npm run typecheck && npm run test"
   },
   "devDependencies": {
+    "esbuild": "^0.28.2",
     "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "dopedocs": "github:junovhs/dopedocs#5e8fc490ed9f1429143df2877597513d2b2482ba"
   }
 }
