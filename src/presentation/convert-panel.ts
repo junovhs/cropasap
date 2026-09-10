@@ -194,7 +194,8 @@ export function createConvertPanel({
       ok = true;
       const move = result.toBytes <= result.fromBytes ? 'down from' : 'up from';
       outcome = `${readableBytes(result.toBytes)}, ${move} ${readableBytes(result.fromBytes)}.`;
-      announce(`${result.count} file${result.count === 1 ? '' : 's'} downloaded as ${result.filename}`);
+      const verb = result.delivery === 'shared' ? 'shared' : result.delivery === 'cancelled' ? 'cancelled' : 'downloaded';
+      announce(`${result.count} file${result.count === 1 ? '' : 's'} ${verb}${result.delivery === 'cancelled' ? '' : ` as ${result.filename}`}`);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       outcome = `Convert failed: ${message}`;

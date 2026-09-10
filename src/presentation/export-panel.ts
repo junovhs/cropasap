@@ -1,6 +1,7 @@
 import {
   DEFAULT_TEMPLATE,
   FORMATS,
+  canShareFiles,
   expandName,
   exportAll,
   scaledTarget,
@@ -113,8 +114,10 @@ export function createExportPanel({
       : '';
 
     const pending = items.filter((item) => !item.approved).length;
+    const sharing = canShareFiles();
     exportNote.textContent = !count
       ? 'Nothing to export yet.'
+      : sharing ? (count === 1 ? 'Opens the share sheet - save to Photos from there.' : `Opens the share sheet with ${count} images.${pending ? ` ${pending} still using the suggested crop.` : ''}`)
       : count === 1 ? 'Downloads as a single image.'
       : pending ? `Downloads as one ZIP. ${pending} still using the suggested crop.`
       : 'Downloads as one ZIP.';
@@ -266,9 +269,12 @@ export function createExportPanel({
         { ...options, label: target.label },
         (progress) => { exportFill.style.width = `${progress * 100}%`; },
       );
+      const verb = result.delivery === 'shared' ? 'Shared' : result.delivery === 'cancelled' ? 'Cancelled' : 'Downloaded';
       exportButton.classList.add('is-done');
-      exportLabel.textContent = 'Downloaded';
-      announce(`${result.count} image${result.count === 1 ? '' : 's'} downloaded as ${result.filename}`);
+      exportLabel.textContent = verb;
+      announce(result.delivery === 'cancelled'
+        ? 'Export cancelled'
+        : `${result.count} image${result.count === 1 ? '' : 's'} ${verb.toLowerCase()} as ${result.filename}`);
       setTimeout(() => {
         exportButton.classList.remove('is-done');
         refreshExport();

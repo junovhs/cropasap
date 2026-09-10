@@ -283,9 +283,60 @@ export function download(blob: Blob, filename: string): void {
   setTimeout(() => URL.revokeObjectURL(url), 4_000);
 }
 
+/**
+ * How the files reach the person.
+ *
+ * On a phone a download lands in a Downloads folder, and getting a picture from
+ * there into Photos is a detour. The system share sheet is where Photos lives -
+ * "Save Image" on iOS, the gallery on Android - so on a touch device the files
+ * go there instead, as images rather than a ZIP so the sheet can save them.
+ * Share has to run inside the tap's activation window; if encoding took too
+ * long and the browser refuses, the download happens as before.
+ */
+export type Delivery = 'downloaded' | 'shared' | 'cancelled';
+
+const touchDevice = (): boolean =>
+  typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+
+/** True where export will go to the share sheet rather than a download. */
+export function canShareFiles(): boolean {
+  const nav = navigator as Navigator & { canShare?: (data: ShareData) => boolean };
+  if (!touchDevice() || typeof nav.share !== 'function' || !nav.canShare) return false;
+  return nav.canShare({ files: [new File([new Uint8Array(1)], 'probe.png', { type: 'image/png' })] });
+}
+
+export async function deliver(
+  files: readonly { readonly blob: Blob; readonly name: string }[],
+  zipName: () => Promise<{ blob: Blob; name: string }>,
+): Promise<{ delivery: Delivery; filename: string }> {
+  const first = files[0];
+  if (!first) throw new Error('Nothing to deliver');
+  const shareable = files.map((file) => new File([file.blob], file.name, { type: file.blob.type }));
+  const nav = navigator as Navigator & { canShare?: (data: ShareData) => boolean };
+  if (touchDevice() && typeof nav.share === 'function' && nav.canShare?.({ files: shareable })) {
+    try {
+      await nav.share({ files: shareable });
+      return { delivery: 'shared', filename: files.length === 1 ? first.name : `${files.length} files` };
+    } catch (error: unknown) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        return { delivery: 'cancelled', filename: first.name };
+      }
+      // NotAllowedError (activation expired) or anything else: fall through.
+    }
+  }
+  if (files.length === 1) {
+    download(first.blob, first.name);
+    return { delivery: 'downloaded', filename: first.name };
+  }
+  const zip = await zipName();
+  download(zip.blob, zip.name);
+  return { delivery: 'downloaded', filename: zip.name };
+}
+
 export interface ExportResult {
   readonly filename: string;
   readonly count: number;
+  readonly delivery: Delivery;
 }
 
 export async function exportAll(
@@ -295,17 +346,11 @@ export async function exportAll(
   onProgress?: ExportProgress,
 ): Promise<ExportResult> {
   const files = await buildFiles(items, target, options, onProgress);
-  const first = files[0];
-  if (!first) throw new Error('Nothing to export');
-
-  if (files.length === 1) {
-    download(first.blob, first.name);
-    return { filename: first.name, count: 1 };
-  }
-
-  const zip = await makeZip(files);
+  if (!files.length) throw new Error('Nothing to export');
   const out = scaledTarget(target, options.scale);
-  const filename = `${sanitize(`cropwizard ${options.label}`)}-${out.w}x${out.h}.zip`;
-  download(zip, filename);
-  return { filename, count: files.length };
+  const { delivery, filename } = await deliver(files, async () => ({
+    blob: await makeZip(files),
+    name: `${sanitize(`cropwizard ${options.label}`)}-${out.w}x${out.h}.zip`,
+  }));
+  return { filename, count: files.length, delivery };
 }

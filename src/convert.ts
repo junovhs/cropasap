@@ -14,7 +14,7 @@
 // files rather than about images.
 
 import { makeZip } from './zip.js';
-import { FORMATS, download, encode, expandName, sanitize, unique } from './export.js';
+import { FORMATS, deliver, encode, expandName, sanitize, unique, type Delivery } from './export.js';
 import { canvasContext } from './infrastructure/dom.js';
 import { decodeOriginal, sourceDimensions } from './infrastructure/image-decoder.js';
 import type { CropItem, ExportFormat } from './domain/types.js';
@@ -134,6 +134,7 @@ export interface ConvertResult {
   readonly count: number;
   readonly fromBytes: number;
   readonly toBytes: number;
+  readonly delivery: Delivery;
 }
 
 const total = (files: readonly ConvertedFile[], of: (file: ConvertedFile) => number): number =>
@@ -149,19 +150,16 @@ export async function convertAndDownload(
   if (!first) throw new Error('Nothing to convert');
 
   const fromBytes = total(files, (file) => file.fromBytes);
-
-  if (files.length === 1) {
-    download(first.blob, first.name);
-    return { filename: first.name, count: 1, fromBytes, toBytes: first.blob.size };
-  }
-
-  const zip = await makeZip(files);
-  const filename = `${sanitize(`cropwizard ${FORMATS[options.format].label}`)}.zip`;
-  download(zip, filename);
-  // The ZIP's own size, not the sum of what went into it. The sentence this
-  // feeds says what you got against what you had, and what you got is the file
-  // that landed in your downloads.
-  return { filename, count: files.length, fromBytes, toBytes: zip.size };
+  let zipSize = 0;
+  const { delivery, filename } = await deliver(files, async () => {
+    const zip = await makeZip(files);
+    zipSize = zip.size;
+    return { blob: zip, name: `${sanitize(`cropwizard ${FORMATS[options.format].label}`)}.zip` };
+  });
+  // When a ZIP was written its own size is what landed, not the sum of what
+  // went into it; shared or single files report the bytes themselves.
+  const toBytes = zipSize || total(files, (file) => file.blob.size);
+  return { filename, count: files.length, fromBytes, toBytes, delivery };
 }
 
 /**

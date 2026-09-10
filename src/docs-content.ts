@@ -305,6 +305,7 @@ export const docsContent = defineDocs({
           ],
         },
         { kind: 'p', text: '2× and 4× multiply the size for high-density screens. The pixel fields take any number. The quality readout says if the crop can back it up.' },
+        { kind: 'p', text: 'On a phone, Export opens the share sheet so you can save straight to Photos. Several images share as images, not a ZIP.' },
         { kind: 'details', summary: 'Transparent images', text: 'Shown on a checkerboard - a darker one when the image is mostly light, so a white logo still reads. Drop one while JPEG is selected and the format switches to PNG. Choose JPEG anyway and you get a warning, not a silent white fill.' },
       ],
       children: [
