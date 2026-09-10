@@ -1231,6 +1231,9 @@ fileInput.onchange = () => { if (fileInput.files) void intake(fileInput.files); 
 const docsOpen = $<HTMLButtonElement>('#docsOpen');
 const workspace = $<HTMLElement>('.app');
 const docsPanel = mountPanel(document.body, docsContent, {
+  // No static /docs routes exist here, so the panel must not rewrite the URL:
+  // the history round-trip on close re-opened it at the last section.
+  syncUrl: false,
   navLabel: 'On this page',
   backLabel: 'Back to app',
   onToggle(open) {

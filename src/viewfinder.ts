@@ -28,9 +28,10 @@ const CPU_BUDGET = 60;  // ms of pixel work a moving slider can afford
 const CPU_MIN = 320;
 const CPU_MAX = 1400;
 const CPU_START = 640;
-const GHOST_IDLE = 0;
-const GHOST_HOVER = 0.12;      // what you keep seeing of the discarded image
+const GHOST_IDLE = 0;         // at rest the discarded image is gone entirely
+const GHOST_HOVER = 0.12;     // ...until the cursor is over it, then faintly back
 const GHOST_ACTIVE = 0.34;    // ...and how much it lifts while you work
+const GHOST_BEAT = 260;       // ms the lifted ghost holds after the frame lands
 const FRAME_PAD = 76;         // most breathing room between frame and stage edge
 const FRAME_PAD_MIN = 22;     // ...and the least, once the stage is a phone
 const FRAME_PAD_SHARE = 0.085; // in between, a share of the smaller dimension
@@ -167,6 +168,7 @@ export function createViewfinder(
         if (!morphing) { morph = null; settle(); }
       } else if (morphing) settle();
     }
+    tickRelease();
     draw();
     // Publish every frame, not just on release: the spring is what decides the
     // final crop, so anything that reads the framing must see where it landed.
@@ -384,7 +386,12 @@ export function createViewfinder(
     // showing through from the stage's CSS background. Painting a colour here
     // meant the canvas carried a second palette that had to be remembered
     // separately every time the theme moved — and didn't get remembered.
-    ctx.clearRect(0, 0, vw, vh);
+    // Cleared in device pixels: the backing store is rounded up from vw × dpr,
+    // and a clear measured in CSS pixels can miss the last column.
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.restore();
     if (!image) return;
 
     // Geometry is always the photograph's. What gets painted may be a rendered
@@ -400,9 +407,14 @@ export function createViewfinder(
     // unfiltered — the frame is furniture, not part of the photograph.
 
     // 1. the whole image, faint — this is the part you are cutting away.
-    ctx.globalAlpha = ghost.v;
-    ctx.drawImage(paint, tx.v, ty.v, w, h);
-    ctx.globalAlpha = 1;
+    // Clamped: the spring overshoots a little, and a negative alpha is not an
+    // error but silently ignored, which painted the ghost at full strength.
+    const ghostAlpha = Math.min(1, Math.max(0, ghost.v));
+    if (ghostAlpha > 0) {
+      ctx.globalAlpha = ghostAlpha;
+      ctx.drawImage(paint, tx.v, ty.v, w, h);
+      ctx.globalAlpha = 1;
+    }
 
     // 2. the same image again at full strength, clipped to the frame.
     ctx.save();
@@ -567,16 +579,59 @@ export function createViewfinder(
     return { x: event.clientX - r.left, y: event.clientY - r.top };
   };
 
+  // Where the mouse last was over the canvas, so the ghost can settle to the
+  // right level once the frame has finished sliding home.
+  let hoverPoint: Point | null = null;
+  let hoverIsMouse = false;
+  // Set on release: the lifted ghost stays put while the frame springs back
+  // into place, then holds a beat, and only then fades to its resting level.
+  let releasing = false;
+  let releaseBeat: ReturnType<typeof setTimeout> | null = null;
+
+  /** The ghost's level with nothing going on: faint under the mouse, else gone. */
+  function restingGhost(): number {
+    if (!image || !hoverIsMouse || !hoverPoint) return GHOST_IDLE;
+    const p = hoverPoint;
+    const f = frameRect();
+    const size = sourceDimensions(image);
+    const overImage = p.x >= tx.v && p.x <= tx.v + size.width * scale.v
+      && p.y >= ty.v && p.y <= ty.v + size.height * scale.v;
+    const outside = p.x < f.x || p.x > f.x + f.w || p.y < f.y || p.y > f.y + f.h;
+    return overImage && outside ? GHOST_HOVER : GHOST_IDLE;
+  }
+
+  /** Eases the ghost to its resting level, unless a release is still playing out. */
+  function settleGhost(): void {
+    if (releasing) return;
+    ghost.set(restingGhost());
+    loop.kick();
+  }
+
   function beginInteraction(): void {
+    releasing = false;
+    if (releaseBeat) { clearTimeout(releaseBeat); releaseBeat = null; }
     ghost.set(GHOST_ACTIVE);
     guides.set(1);
     loop.kick();
   }
 
   function endInteraction(): void {
-    ghost.set(GHOST_IDLE);
     guides.set(0);
+    releasing = true;
     loop.kick();
+  }
+
+  /** Called each frame: once the frame has landed after a release, start the beat. */
+  function tickRelease(): void {
+    if (!releasing || dragging || releaseBeat) return;
+    const geometrySettled = frameX.settled && frameY.settled && frameW.settled && frameH.settled
+      && scale.settled && tx.settled && ty.settled && !morph;
+    if (!geometrySettled) return;
+    releaseBeat = setTimeout(() => {
+      releaseBeat = null;
+      releasing = false;
+      settleGhost();
+    }, GHOST_BEAT);
   }
 
   const hitTest = (p: Point, coarse = false): FrameHandle | null =>
@@ -746,13 +801,9 @@ export function createViewfinder(
     if (pointers.has(e.pointerId)) pointers.set(e.pointerId, point);
 
     if (pointers.size === 0) {
-      const f = frameRect();
-      const size = sourceDimensions(image);
-      const overImage = point.x >= tx.v && point.x <= tx.v + size.width * scale.v
-        && point.y >= ty.v && point.y <= ty.v + size.height * scale.v;
-      const outside = point.x < f.x || point.x > f.x + f.w || point.y < f.y || point.y > f.y + f.h;
-      ghost.set(e.pointerType === 'mouse' && overImage && outside ? GHOST_HOVER : GHOST_IDLE);
-      loop.kick();
+      hoverPoint = point;
+      hoverIsMouse = e.pointerType === 'mouse';
+      settleGhost();
       const next = hitTest(point, e.pointerType !== 'mouse');
       if (next !== hoverHandle) {
         hoverHandle = next;
@@ -891,7 +942,8 @@ export function createViewfinder(
   canvas.addEventListener('pointerdown', onPointerDown);
   canvas.addEventListener('pointermove', onPointerMove);
   canvas.addEventListener('pointerleave', () => {
-    if (!pointers.size) { ghost.set(GHOST_IDLE); loop.kick(); }
+    hoverPoint = null;
+    if (!pointers.size) settleGhost();
   });
   canvas.addEventListener('pointerup', onPointerUp);
   canvas.addEventListener('pointercancel', onPointerUp);
