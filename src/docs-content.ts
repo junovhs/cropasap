@@ -377,7 +377,7 @@ export const docsContent = defineDocs({
       question: 'How do I crop many images to the same size at once in CropWizard?',
       answer:
         'Drop several images and CropWizard opens Batch: choose one shared output size, every image ' +
-        'gets a content-aware suggested crop, you keep or adjust each one, and the whole set downloads ' +
+        'gets a suggested crop, you keep or adjust each one, and the whole set downloads ' +
         'as a single ZIP.',
       keywords: ['bulk crop', 'batch resize', 'crop multiple images', 'ZIP download', 'queue'],
       blocks: [
@@ -390,7 +390,7 @@ export const docsContent = defineDocs({
           items: [
             { title: 'Choose a stack', text: 'Drop several images, or click Batch and choose them. A multi-image drop opens Batch on its own.' },
             { title: 'Set one output size', text: 'Every queued image is fitted to the same destination. This comes first because it is what makes the queue coherent.' },
-            { title: 'Review the suggestion', text: 'Each image arrives with an automatic crop. Move or zoom only where it needs help.' },
+            { title: 'Review the suggestion', text: 'Each image arrives with the largest crop of that shape, centred. Move or zoom only where it needs help.' },
             { title: 'Finalize', text: 'Enter, Space or the button keeps the crop and jumps to the next image that still needs a decision.' },
             { title: 'Export the queue', text: 'Every output lands in one ZIP, named by your template.' },
           ],
@@ -411,7 +411,7 @@ export const docsContent = defineDocs({
         {
           kind: 'details',
           summary: 'Changing the shared size after framing',
-          text: 'The output size stays live for the whole queue. Pick a different destination and every crop adapts to the new shape: automatic crops are suggested again for the new target, while crops you positioned yourself keep their decision and are refit around the same centre rather than discarded.',
+          text: 'The output size stays live for the whole queue. Pick a different destination and every crop adapts to the new shape: crops you have not touched are re-centred for the new target, while crops you positioned yourself keep their decision and are refit around the same centre rather than discarded.',
         },
         {
           kind: 'details',
@@ -583,7 +583,7 @@ export const docsContent = defineDocs({
       answer:
         'CropWizard is a dependency-free TypeScript web application that does all of its image work ' +
         'in the browser: a gamma-correct Lanczos resampler, a WebGL preview of the adjustment ' +
-        'pipeline, its own PNG and ZIP encoders, and a content-aware autoframer — with no server ' +
+        'pipeline, and its own PNG and ZIP encoders — with no server ' +
         'and no third-party code at runtime.',
       keywords: ['architecture', 'how it works', 'WebGL', 'Lanczos', 'linear light', 'client-side image processing', 'no dependencies'],
       blocks: [
@@ -596,7 +596,7 @@ export const docsContent = defineDocs({
           items: [
             { value: '0', label: 'runtime dependencies', detail: 'No image library, no framework, nothing fetched from a CDN.' },
             { value: '0', label: 'servers', detail: 'A static page. There is nothing on the other end to be slow, down, or curious.' },
-            { value: '100%', label: 'own engine', detail: 'Resampler, PNG writer, ZIP writer, GPU preview, autoframer.' },
+            { value: '100%', label: 'own engine', detail: 'Resampler, PNG writer, ZIP writer, GPU preview.' },
           ],
         },
       ],
@@ -676,27 +676,6 @@ export const docsContent = defineDocs({
             {
               kind: 'p',
               text: 'So CropWizard encodes it itself as well and keeps whichever blob is smaller. Everything here is lossless; the choices are only about how the same numbers are spelled. Deflate comes from the platform\'s `CompressionStream`, which is what keeps this inside the no-dependencies rule.',
-            },
-          ],
-        },
-        {
-          id: 'autoframe',
-          title: 'The suggested crop',
-          question: 'How does CropWizard choose the automatic crop in Batch?',
-          answer:
-            'CropWizard\'s autoframer builds a small energy map of the image from edge contrast and ' +
-            'colour saturation, then slides a window of the target shape to where the energy is densest, ' +
-            'with a gentle bias toward the centre. It runs in a few milliseconds per image and never ' +
-            'sends the picture anywhere.',
-          keywords: ['content-aware crop', 'smart crop', 'auto crop', 'saliency'],
-          blocks: [
-            {
-              kind: 'p',
-              text: 'A crop that lands on the interesting part of a picture does not need a neural network; it needs to know where the detail is. The image is sampled to under a hundred pixels on its long side, each pixel scored by how much it differs from its neighbours plus how saturated it is, and the target rectangle is placed where the score adds up highest. Prefix sums make the search instant.',
-            },
-            {
-              kind: 'p',
-              text: 'It is a suggestion. In Batch you see it before it is kept, and a crop you position yourself is remembered as yours — a later change of size refits around your centre rather than re-guessing.',
             },
           ],
         },

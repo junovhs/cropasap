@@ -1,4 +1,7 @@
-import { autoFrame } from '../autoframe.js';
+// The content-aware autoframer is on ice: it moved the crop without being
+// asked, which read as confusion rather than help. `autoframe.ts` stays in the
+// tree for when it comes back behind an explicit command.
+// import { autoFrame } from '../autoframe.js';
 import { sourceDimensions } from '../infrastructure/image-decoder.js';
 import type { CropItem, Framing, OutputTarget } from '../domain/types.js';
 
@@ -30,9 +33,15 @@ function refitSource(item: CropItem, framing: Framing | null, aspect: number): F
   };
 }
 
+// The suggested crop is the largest rectangle of the target shape, centred.
 function suggestedSourceFrame(item: CropItem, aspect: number): Framing {
-  const preview = autoFrame(item.image, aspect);
   const source = sourceDimensions(item.image);
+  let cropW = Math.min(source.width, source.height * aspect);
+  let cropH = cropW / aspect;
+  if (cropH > source.height) { cropH = source.height; cropW = cropH * aspect; }
+  return { cx: source.width / 2, cy: source.height / 2, cropW, cropH };
+  /* On ice — the content-aware placement:
+  const preview = autoFrame(item.image, aspect);
   const xScale = source.width / item.image.naturalWidth;
   const yScale = source.height / item.image.naturalHeight;
   return refitSource(item, {
@@ -41,6 +50,7 @@ function suggestedSourceFrame(item: CropItem, aspect: number): Framing {
     cropW: preview.cropW * xScale,
     cropH: preview.cropH * yScale,
   }, aspect);
+  */
 }
 
 export function suggestFrame(item: CropItem, target: OutputTarget): CropItem {
