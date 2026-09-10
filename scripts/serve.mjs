@@ -20,7 +20,9 @@ const types = {
 createServer((req, res) => {
   const url = new URL(req.url ?? '/', 'http://localhost');
   let rel = normalize(decodeURIComponent(url.pathname)).replace(/^([/\\])+/, '');
-  if (rel === '' || rel.endsWith('/')) rel += 'index.html';
+  // A directory request serves its index — checked against both separators,
+  // because normalize() has already turned the URL's slashes into Windows ones.
+  if (rel === '' || rel.endsWith('/') || rel.endsWith('\\')) rel += 'index.html';
   if (rel.split(/[/\\]/).includes('..')) {
     res.writeHead(403).end('forbidden');
     return;

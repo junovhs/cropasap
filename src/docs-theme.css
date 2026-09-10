@@ -1,0 +1,39 @@
+/* CropWizard's design tokens, aliased onto the dopedocs contract.
+   The in-app panel gets these from styles.css; the static /docs pages load
+   only what they link, so they need their own copy with literal values.
+   Keep in step with the :root block in src/styles.css. */
+
+@font-face {
+  font-family: 'Inter Tight';
+  src: url('/src/fonts/inter-tight-latin.woff2') format('woff2');
+  font-weight: 400 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/src/fonts/jetbrains-mono-latin.woff2') format('woff2');
+  font-weight: 400 600;
+  font-display: swap;
+}
+
+:root {
+  --dd-bg: #ffffff;
+  --dd-panel: #ffffff;
+  --dd-panel-muted: #f6fbff;
+  --dd-ink: #0f0f11;
+  --dd-text: #20205c;
+  --dd-text-soft: #5b6099;
+  --dd-muted: #6875a3;
+  --dd-on-ink: #f4f6fb;
+  --dd-on-ink-strong: #ffffff;
+  --dd-on-accent: #ffffff;
+  --dd-line: #dce8f8;
+  --dd-line-soft: #e4edf9;
+  --dd-edge: #647a9e;
+  --dd-accent: #0068f5;
+  --dd-sans: 'Inter Tight', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --dd-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --dd-radius: 6px;
+  --dd-radius-sm: 5px;
+  --dd-radius-xs: 4px;
+}

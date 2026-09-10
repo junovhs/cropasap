@@ -1238,18 +1238,34 @@ fileInput.onchange = () => { if (fileInput.files) void intake(fileInput.files); 
 const docsOpen = $<HTMLButtonElement>('#docsOpen');
 const workspace = $<HTMLElement>('.app');
 const docsPanel = mountPanel(document.body, docsContent, {
-  // No static /docs routes exist here, so the panel must not rewrite the URL:
-  // the history round-trip on close re-opened it at the last section.
-  syncUrl: false,
   navLabel: 'On this page',
   backLabel: 'Back to app',
   onToggle(open) {
     workspace.inert = open;
     docsOpen.setAttribute('aria-expanded', String(open));
-    if (!open) docsOpen.focus();
+    if (!open) {
+      docsOpen.focus();
+      guardAppUrl();
+    }
   },
 });
 docsOpen.addEventListener('click', () => docsPanel.open());
+
+// The panel mirrors the section being read into the URL and closes with
+// history.back(). A scroll event that reaches its hidden pane after closing
+// can rewrite the *app's* history entry to a /docs/ address, and the next
+// close then lands on that entry and re-opens the panel there. So for a moment
+// after closing, a /docs/ address with the panel shut is put back to the app.
+function guardAppUrl(): void {
+  const base = docsContent.basePath ?? '/docs';
+  const started = performance.now();
+  const check = (): void => {
+    if (docsPanel.isOpen) return;
+    if (location.pathname.startsWith(base)) window.history.replaceState(window.history.state, '', '/');
+    if (performance.now() - started < 1200) requestAnimationFrame(check);
+  };
+  requestAnimationFrame(check);
+}
 document.addEventListener('keydown', (event) => {
   if (docsPanel.isOpen) event.stopImmediatePropagation();
 });
