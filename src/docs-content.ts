@@ -3,11 +3,11 @@
  *
  * Authored once as typed data against the dopedocs schema, which renders it
  * both as the in-app panel and as the crawlable pages at `/docs/<id>/`. This
- * file is the whole of CropWizard's documentation — the engine lives in the
+ * file is the whole of CropWizard's documentation - the engine lives in the
  * `dopedocs` package.
  *
  * It is a user manual first. The sections near the end say, for the record and
- * for the crawlers, how the thing is actually built — because a claim like
+ * for the crawlers, how the thing is actually built - because a claim like
  * "your images never leave the browser" is worth nothing unless the page that
  * makes it is the one an answer engine quotes.
  *
@@ -20,7 +20,7 @@ import { defineDocs, defineFacts } from 'dopedocs';
 
 export const FACTS = defineFacts({
   price: { value: 'Free', reviewed: '2026-09-10' },
-  upload: { value: 'never uploaded — every pixel stays in this browser tab', reviewed: '2026-09-10' },
+  upload: { value: 'never uploaded - every pixel stays in this browser tab', reviewed: '2026-09-10' },
   formats: { value: 'PNG, JPEG and WebP', reviewed: '2026-09-10' },
   presets: { value: 'more than 400 named sizes across 60-odd platforms and print formats', reviewed: '2026-09-10' },
   scales: { value: '1×, 2× and 4×', reviewed: '2026-09-10' },
@@ -73,7 +73,7 @@ export const docsContent = defineDocs({
   title: 'CropWizard',
   lead:
     'Opening Photoshop to crop one image is a waste of your time. CropWizard: drop the image, ' +
-    'type where it is going, export. {fact:price}, no account, nothing uploaded. ' +
+    'type where it is going, export. {fact:price}. ' +
     'If you are reading this it should be because you want to know more, not because you got stuck.',
 
   sections: [
@@ -83,29 +83,25 @@ export const docsContent = defineDocs({
       question: 'What is CropWizard?',
       answer:
         'CropWizard is a free browser tool that crops, resizes, adjusts and converts images to an ' +
-        'exact output size. Images are {fact:upload}.',
+        'exact output size.',
       keywords: ['image cropper', 'resize image online', 'crop to size', 'social media image sizes', 'browser image editor'],
       blocks: [
         {
           kind: 'p',
-          text: 'You name the destination. The frame on screen **is** that size. Move the picture under it, export. What you see is what gets written.',
+          text: 'You name the destination. The crop frame takes that shape, drawn at its real size when it fits and smaller when it does not. Move the frame over the picture, export. What is inside the frame is what gets written, at the size you named.',
         },
         {
-          kind: 'cards',
+          kind: 'steps',
           items: [
-            { label: '01', title: 'Crop & Resize', text: 'Pick a size, position the image, export.' },
-            { label: '02', title: 'Adjust', text: 'Light, tone, colour, effects, grain. Per image.' },
-            { label: '03', title: 'Convert', text: 'Change the format. Touch nothing else.' },
-            { label: '04', title: 'Batch', text: 'Many images, one size, one ZIP.' },
+            { title: 'Drop', text: 'Anywhere on the page. Or paste with Ctrl/⌘ V, or click the stage to pick a file.' },
+            { title: 'Type the size', text: 'Click the size chip. `instagram story`, `1200 x 630`, `16:9` - whatever you know.' },
+            { title: 'Position', text: 'Drag to move, scroll to zoom, `0` to fill the frame again.' },
+            { title: 'Export', text: 'PNG, JPEG or WebP. Downloads immediately.' },
           ],
         },
         {
-          kind: 'metrics',
-          items: [
-            { value: '400+', label: 'named sizes', detail: 'Every major platform. Searchable in plain words.' },
-            { value: '0', label: 'uploads', detail: 'Everything runs on your device.' },
-            { value: '0', label: 'accounts', detail: 'Nothing to sign up for.' },
-          ],
+          kind: 'callout',
+          text: 'Drop several images and Batch opens on its own: one size, every image, one ZIP.',
         },
       ],
     },
@@ -115,7 +111,7 @@ export const docsContent = defineDocs({
       title: 'Output sizes',
       question: 'How do I find the right image size for a platform in CropWizard?',
       answer:
-        'Type it the way you would say it — `ig story`, `youtube thumbnail`, `1200 by 630`, `4:5` — ' +
+        'Type it the way you would say it - `ig story`, `youtube thumbnail`, `1200 by 630`, `4:5` - ' +
         'and CropWizard matches it against {fact:presets}. Typos and abbreviations are fine. ' +
         'A size you type yourself can be saved and becomes searchable too.',
       keywords: ['image sizes', 'social media sizes', 'presets', 'aspect ratio', 'og image size', 'instagram story size'],
@@ -143,7 +139,7 @@ export const docsContent = defineDocs({
         {
           kind: 'details',
           summary: 'Sizes it does not have',
-          text: 'Type the pixels. Name it, save it — it now ranks like any preset. Pin it and it sits in the top bar. Saved and pinned sizes are the only things CropWizard remembers between visits: {fact:persistence}.',
+          text: 'Type the pixels. Name it, save it - it now ranks like any preset. Pin it and it sits in the top bar. Saved and pinned sizes are the only things CropWizard remembers between visits: {fact:persistence}.',
         },
         {
           kind: 'details',
@@ -154,35 +150,11 @@ export const docsContent = defineDocs({
     },
 
     {
-      id: 'first-crop',
-      title: 'Your first crop',
-      question: 'How do I crop an image to a specific size with CropWizard?',
-      answer:
-        'Drop the image, click the size chip and type the destination, drag the picture inside the frame, press Export.',
-      keywords: ['quick start', 'how to crop', 'getting started'],
-      blocks: [
-        {
-          kind: 'steps',
-          items: [
-            { title: 'Drop', text: 'Anywhere on the page. Or paste with Ctrl/⌘ V, or click the stage to pick a file.' },
-            { title: 'Type the size', text: 'Click the size chip. `instagram story`, `1200 x 630`, `16:9` — whatever you know.' },
-            { title: 'Position', text: 'Drag to move, scroll to zoom, `0` to fill the frame again.' },
-            { title: 'Export', text: 'PNG, JPEG or WebP. Downloads immediately.' },
-          ],
-        },
-        {
-          kind: 'callout',
-          text: 'Drop several images and Batch opens on its own: one size, every image, one ZIP.',
-        },
-      ],
-    },
-
-    {
       id: 'framing',
       title: 'Framing',
       question: 'How do I move, zoom and position the crop in CropWizard?',
       answer:
-        'The frame stays fixed; the image moves under it. Drag to move, scroll to zoom, arrow keys nudge by {fact:nudge}, 0 fills the frame. A quality readout warns when the crop has fewer pixels than the output needs.',
+        'Drag to move the frame over the image, scroll to zoom, arrow keys nudge by {fact:nudge}, 0 fills the frame. A quality readout warns when the crop has fewer pixels than the output needs.',
       keywords: ['move crop', 'zoom', 'nudge', 'fill frame', 'quality readout'],
       blocks: [
         {
@@ -199,7 +171,7 @@ export const docsContent = defineDocs({
         {
           kind: 'callout',
           tone: 'warn',
-          text: 'The quality readout compares the pixels in the crop with the pixels the output needs. Ask for more than the crop holds and it says the result will soften — before you export.',
+          text: 'The quality readout compares the pixels in the crop with the pixels the output needs. Ask for more than the crop holds and it says the result will soften - before you export.',
         },
       ],
       children: [
@@ -214,9 +186,9 @@ export const docsContent = defineDocs({
             {
               kind: 'list',
               items: [
-                '**True size** — one screen pixel per output pixel. What the file will look like.',
-                '**Smaller** — for when true size does not fit the stage.',
-                '**Enlarged** — for small outputs like thumbnails and favicons.',
+                '**True size** - one screen pixel per output pixel. What the file will look like.',
+                '**Smaller** - for when true size does not fit the stage.',
+                '**Enlarged** - for small outputs like thumbnails and favicons.',
               ],
             },
             { kind: 'p', text: 'Views that would show the same picture are not offered. Switching never changes the export.' },
@@ -227,7 +199,7 @@ export const docsContent = defineDocs({
           title: 'Freeform',
           question: 'Can I crop without a fixed aspect ratio in CropWizard?',
           answer:
-            'Yes. Freeform unlocks the aspect ratio; the crop rectangle itself becomes the output size. The preset is suspended, not forgotten — turn Freeform off and it comes back.',
+            'Yes. Freeform unlocks the aspect ratio; the crop rectangle itself becomes the output size. The preset is suspended, not forgotten - turn Freeform off and it comes back.',
           keywords: ['freeform crop', 'free aspect ratio'],
           blocks: [
             { kind: 'p', text: 'Drag any edge or corner. The pixel count on the chip is live and is the output size at 1:1. Tap the chip to turn those pixels into a named size.' },
@@ -302,7 +274,7 @@ export const docsContent = defineDocs({
       title: 'Convert',
       question: 'How do I convert an image to WebP, PNG or JPEG without cropping it?',
       answer:
-        'Convert re-encodes the file as WebP, PNG or JPEG and changes nothing else — same pixels, same dimensions.',
+        'Convert re-encodes the file as WebP, PNG or JPEG and changes nothing else - same pixels, same dimensions.',
       keywords: ['convert to webp', 'png to jpg', 'image converter'],
       blocks: [
         {
@@ -333,7 +305,7 @@ export const docsContent = defineDocs({
           ],
         },
         { kind: 'p', text: '2× and 4× multiply the size for high-density screens. The pixel fields take any number. The quality readout says if the crop can back it up.' },
-        { kind: 'details', summary: 'Transparent images', text: 'Shown on a checkerboard — a darker one when the image is mostly light, so a white logo still reads. Drop one while JPEG is selected and the format switches to PNG. Choose JPEG anyway and you get a warning, not a silent white fill.' },
+        { kind: 'details', summary: 'Transparent images', text: 'Shown on a checkerboard - a darker one when the image is mostly light, so a white logo still reads. Drop one while JPEG is selected and the format switches to PNG. Choose JPEG anyway and you get a warning, not a silent white fill.' },
       ],
       children: [
         {
@@ -341,7 +313,7 @@ export const docsContent = defineDocs({
           title: 'Filenames',
           question: 'How do I control the exported filenames in CropWizard?',
           answer:
-            'Three checkboxes — keep the original name, add the size, number them — or a template using {name}, {w}, {h}, {label}, {n} and {date}. The result is previewed before export.',
+            'Three checkboxes - keep the original name, add the size, number them - or a template using {name}, {w}, {h}, {label}, {n} and {date}. The result is previewed before export.',
           keywords: ['filename template', 'rename', 'batch naming'],
           blocks: [
             {
@@ -393,14 +365,14 @@ export const docsContent = defineDocs({
       title: 'Privacy',
       question: 'Does CropWizard upload my images?',
       answer:
-        'No. Images are {fact:upload}. No server processing, no account, no analytics; the page makes {fact:dependencies}.',
+        'No. Images are {fact:upload}. No server processing, no analytics; the page makes {fact:dependencies}.',
       keywords: ['privacy', 'no upload', 'local processing'],
       blocks: [
         {
           kind: 'facts',
           title: 'What persists, and where',
           rows: [
-            ['Images, crops, adjustments', 'This tab. Reload clears them — export first.'],
+            ['Images, crops, adjustments', 'This tab. Reload clears them - export first.'],
             ['Saved and pinned sizes', 'This browser\'s local storage.'],
             ['On a server', 'Nothing. There is no server.'],
           ],
@@ -414,17 +386,17 @@ export const docsContent = defineDocs({
       title: 'How it is built',
       question: 'How does CropWizard work under the hood?',
       answer:
-        'CropWizard is dependency-free TypeScript that does all image work in the browser: a gamma-correct Lanczos resampler, a WebGL preview of the adjustment pipeline, and its own PNG and ZIP encoders. No server, no third-party code.',
+        'CropWizard is dependency-free TypeScript: a gamma-correct Lanczos resampler, a WebGL preview of the adjustment pipeline, and its own PNG and ZIP encoders, all running in the browser.',
       keywords: ['architecture', 'WebGL', 'Lanczos', 'linear light', 'client-side image processing'],
       blocks: [
-        { kind: 'p', text: 'Most online image tools are a form in front of a server. This one ships the whole engine to your browser. The parts that decide quality were written for it.' },
+        { kind: 'p', text: 'The parts that decide quality were written for this tool rather than borrowed.' },
         {
           kind: 'facts',
           title: 'The stack',
           rows: [
             ['Language', 'TypeScript, one ES module, no framework'],
-            ['Resampling', 'Own — Lanczos-3 in linear light'],
-            ['Adjustments', 'Own — WebGL 2 preview, JavaScript export'],
+            ['Resampling', 'Own - Lanczos-3 in linear light'],
+            ['Adjustments', 'Own - WebGL 2 preview, JavaScript export'],
             ['PNG', 'Own writer, raced against the browser\'s'],
             ['ZIP', 'Own writer'],
             ['Runtime dependencies', 'None'],
@@ -441,8 +413,8 @@ export const docsContent = defineDocs({
             'CropWizard downscales with {fact:resampler}. Pixels are converted from sRGB codes to actual light before averaging, so thin bright detail keeps its brightness and fine texture is filtered instead of aliased.',
           keywords: ['Lanczos', 'gamma-correct resize', 'linear light', 'sRGB'],
           blocks: [
-            { kind: 'p', text: 'A pixel value is a code for light, not an amount of it. Averaging codes — what canvas `drawImage` does — gets the wrong answer: mid-grey between black and white comes out at 128 instead of 188. Thin bright lines, checkerboards and starfields darken as they shrink.' },
-            { kind: 'p', text: 'So: decode to light, resample there, re-encode. The Lanczos-3 support widens with the reduction, which is a low-pass filter before pixels are discarded — the reason a proper resize keeps detail a box average smears.' },
+            { kind: 'p', text: 'A pixel value is a code for light, not an amount of it. Averaging codes - what canvas `drawImage` does - gets the wrong answer: mid-grey between black and white comes out at 128 instead of 188. Thin bright lines, checkerboards and starfields darken as they shrink.' },
+            { kind: 'p', text: 'So: decode to light, resample there, re-encode. The Lanczos-3 support widens with the reduction, which is a low-pass filter before pixels are discarded - the reason a proper resize keeps detail a box average smears.' },
             {
               kind: 'compare',
               before: { title: 'Canvas drawImage', text: 'Averages sRGB codes. Bright detail darkens, texture aliases.' },
@@ -466,7 +438,7 @@ export const docsContent = defineDocs({
                 'No WebGL: the same pipeline runs on the CPU, reduced while you drag, full quality when you stop.',
               ],
             },
-            { kind: 'callout', text: 'A missing extension can cost a smooth slider. It can never cost the picture — every export goes through the CPU pipeline at full resolution.' },
+            { kind: 'callout', text: 'A missing extension can cost a smooth slider. It can never cost the picture - every export goes through the CPU pipeline at full resolution.' },
           ],
         },
         {
@@ -474,7 +446,7 @@ export const docsContent = defineDocs({
           title: 'PNG encoder',
           question: 'Why are CropWizard\'s PNG files smaller than the browser\'s?',
           answer:
-            'Every PNG is encoded twice — by the browser and by CropWizard\'s own writer, which picks the cheapest colour type and filter for the image — and the smaller one is kept. The pixels are identical.',
+            'Every PNG is encoded twice - by the browser and by CropWizard\'s own writer, which picks the cheapest colour type and filter for the image - and the smaller one is kept. The pixels are identical.',
           keywords: ['PNG optimisation', 'palette PNG', 'smaller PNG'],
           blocks: [
             { kind: 'p', text: 'The browser always writes 32 bits per pixel. A screenshot has a handful of colours; a photo has no alpha. The format has been able to say so since 1996. Deflate comes from the platform\'s `CompressionStream`, so this stays dependency-free.' },
@@ -488,7 +460,7 @@ export const docsContent = defineDocs({
             'At runtime, nothing. CropWizard makes {fact:dependencies}. Fonts are vendored, encoders are in-house, and the documentation is rendered from typed data.',
           keywords: ['no dependencies', 'vanilla TypeScript', 'privacy by architecture'],
           blocks: [
-            { kind: 'p', text: 'A tool that promises your images never leave the browser has to have nowhere to send them. Every third-party script is a party. Zero is the only number that makes the promise checkable.' },
+            { kind: 'p', text: 'Every third-party script is another party with access to the page. Zero is the only number that makes the privacy claim checkable.' },
           ],
         },
       ],
@@ -509,7 +481,7 @@ export const docsContent = defineDocs({
           rows: [
             ['Based in', 'Eugene, Oregon'],
             ['Size', 'One person'],
-            ['That person', 'Spencer Nunamaker — UI/UX designer, musician, artist'],
+            ['That person', 'Spencer Nunamaker - UI/UX designer, musician, artist'],
             ['Also made', 'No Ceremony, a day organiser · Tip Top Brushes, for Procreate'],
           ],
         },
