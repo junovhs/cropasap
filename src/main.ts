@@ -203,6 +203,10 @@ function syncStageChrome(): void {
   $<HTMLButtonElement>('#modeAdjust').disabled = !hasImage;
   $<HTMLButtonElement>('#modeConvert').disabled = !hasImage;
   $('#adjust').hidden = !hasImage || room !== 'adjust';
+  // Nothing frames in Adjust or Convert, so the stage stops taking pointers
+  // and the phone layout gives the drawer its own room below the picture.
+  view.setLocked(!framing);
+  document.body.classList.toggle('is-adjusting', hasImage && room === 'adjust');
   $('#convert').hidden = !hasImage || room !== 'convert';
   // The crop readouts describe a framing decision, so they are only true while
   // that is the decision being made.

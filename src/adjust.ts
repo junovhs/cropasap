@@ -438,7 +438,42 @@ export function createAdjustPanel({ rows, reset, onChange, onAnnounce }: AdjustP
     changeFrame = requestAnimationFrame(() => { changeFrame = 0; onChange(value); });
   };
 
+  // On a phone the groups are a row of tabs and each group's channels a row of
+  // chips, so one slider is on screen at a time with the picture above it. On a
+  // wide screen both rows are hidden and the folders below do the same job.
+  const tabs = document.createElement('div');
+  tabs.className = 'adjust-tabs';
+  tabs.setAttribute('role', 'tablist');
+  rows.append(tabs);
+  const chipsByGroup = new Map<AdjustmentGroup, HTMLDivElement>();
+  const chips = new Map<AdjustmentKey, HTMLButtonElement>();
+  const rowByKey = new Map<AdjustmentKey, HTMLDivElement>();
+
+  function showGroup(name: AdjustmentGroup): void {
+    for (const [other, details] of groups) details.open = other === name;
+    for (const tab of tabs.querySelectorAll<HTMLButtonElement>('.adjust-tab')) {
+      tab.setAttribute('aria-selected', String(tab.dataset.group === name));
+    }
+  }
+  function showChannel(key: AdjustmentKey): void {
+    const entry = CHANNELS.find((channel) => channel.key === key);
+    if (!entry) return;
+    for (const channel of CHANNELS) {
+      if (channel.group !== entry.group) continue;
+      rowByKey.get(channel.key)?.setAttribute('data-active', String(channel.key === key));
+      chips.get(channel.key)?.setAttribute('aria-selected', String(channel.key === key));
+    }
+  }
+
   for (const groupName of ['Light', 'Tone', 'Color', 'Effects', 'Grain'] as const) {
+    const tab = document.createElement('button');
+    tab.type = 'button'; tab.className = 'adjust-tab'; tab.dataset.group = groupName;
+    tab.setAttribute('role', 'tab');
+    tab.setAttribute('aria-selected', String(groupName === 'Light'));
+    tab.textContent = groupName;
+    tab.addEventListener('click', () => showGroup(groupName));
+    tabs.append(tab);
+
     const details = document.createElement('details');
     details.className = 'adjust-group';
     details.open = groupName === 'Light';
@@ -451,6 +486,11 @@ export function createAdjustPanel({ rows, reset, onChange, onAnnounce }: AdjustP
     summary.append(title, touched);
     const body = document.createElement('div');
     body.className = 'adjust-group-body';
+    const chipRow = document.createElement('div');
+    chipRow.className = 'adjust-chips';
+    chipRow.setAttribute('role', 'tablist');
+    body.append(chipRow);
+    chipsByGroup.set(groupName, chipRow);
     details.append(summary, body);
     rows.append(details);
     groups.set(groupName, details);
@@ -487,6 +527,20 @@ export function createAdjustPanel({ rows, reset, onChange, onAnnounce }: AdjustP
     header.append(label, zero); row.append(header, input);
     groups.get(entry.group)?.querySelector('.adjust-group-body')?.append(row);
     controls.set(entry.key, { input, zero });
+    rowByKey.set(entry.key, row);
+
+    const chip = document.createElement('button');
+    chip.type = 'button'; chip.className = 'adjust-chip'; chip.dataset.channel = entry.key;
+    chip.setAttribute('role', 'tab');
+    chip.textContent = entry.label;
+    chip.addEventListener('click', () => showChannel(entry.key));
+    chipsByGroup.get(entry.group)?.append(chip);
+    chips.set(entry.key, chip);
+  }
+  // The first channel of each group is the one on screen until another is picked.
+  for (const name of groups.keys()) {
+    const first = CHANNELS.find((channel) => channel.group === name);
+    if (first) showChannel(first.key);
   }
 
   reset.addEventListener('click', () => {
@@ -503,6 +557,7 @@ export function createAdjustPanel({ rows, reset, onChange, onAnnounce }: AdjustP
       control.zero.textContent = displayValue(entry, current);
       const touched = current !== initialFor(entry);
       control.zero.disabled = !touched;
+      chips.get(entry.key)?.setAttribute('data-touched', String(touched));
       if (touched) touchedByGroup.set(entry.group, (touchedByGroup.get(entry.group) ?? 0) + 1);
     }
     for (const [name, details] of groups) {

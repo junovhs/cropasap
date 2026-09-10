@@ -83,6 +83,8 @@ export interface ViewfinderOptions {
 }
 
 export interface ViewfinderController {
+  /** Shows the picture and ignores every pointer, for rooms that do not frame. */
+  setLocked(locked: boolean): void;
   setImage(image: HTMLImageElement | null, framing?: Framing | null): void;
   setAdjust(adjustment: Adjustment): void;
   setTarget(w: number, h: number, immediate?: boolean): void;
@@ -112,6 +114,9 @@ export function createViewfinder(
   const ctx = canvasContext(canvas);
 
   let image: HTMLImageElement | null = null;
+  // Adjust and Convert leave the framing alone, so while one of them is the
+  // job the stage shows the picture and takes no pointer at all.
+  let locked = false;
 
   // The checkerboard a transparent picture sits on, the way a design app shows
   // one. Two boards: the usual light one, and a darker one for a picture that
@@ -563,6 +568,14 @@ export function createViewfinder(
       ctx.stroke();
     };
 
+    // Locked, the frame is a boundary and not a control: a plain edge, no grips.
+    if (locked) {
+      ctx.strokeStyle = '#0068f5';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(f.x, f.y, f.w, f.h);
+      return;
+    }
+
     ctx.lineCap = 'square';
     ctx.strokeStyle = '#0068f5';
     ctx.lineWidth = 3.5;
@@ -787,6 +800,7 @@ export function createViewfinder(
   }
 
   function onPointerDown(e: PointerEvent): void {
+    if (locked) return;
     if (!image) return;
     const p = localPoint(e);
 
@@ -834,6 +848,7 @@ export function createViewfinder(
   }
 
   function onPointerMove(e: PointerEvent): void {
+    if (locked) return;
     if (!image) return;
     const point = localPoint(e);
     // Where this pointer was a moment ago, read before it is overwritten: a pan
@@ -938,6 +953,7 @@ export function createViewfinder(
 
   let wheelIdle: ReturnType<typeof setTimeout> | null = null;
   function onWheel(e: WheelEvent): void {
+    if (locked) return;
     if (!image) return;
     e.preventDefault();
     normalizeFrameImmediately();
@@ -999,6 +1015,13 @@ export function createViewfinder(
   }
 
   return {
+    setLocked(next: boolean): void {
+      if (locked === next) return;
+      locked = next;
+      canvas.style.cursor = 'default';
+      if (next) { pointers.clear(); dragging = null; hoverHandle = null; }
+      loop.kick();
+    },
     setImage(next: HTMLImageElement | null, framing?: Framing | null): void {
       image = next;
       previewDirty = true;
