@@ -725,7 +725,7 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 
 /* The phone's tab and chip rows. On a wide screen every slider is on show
    inside its folder, so neither row is needed. */
-.adjust-tabs, .adjust-chips { display: none; }
+.adjust-tabs, .adjust-chips, .adjust-back { display: none; }
 .adjust-rows { display: grid; gap: 4px; margin-top: 10px; }
 .adjust-group {
   border: 1px solid transparent;
@@ -1741,7 +1741,7 @@ button.picker-ratio:hover:not(:disabled) { border-color: var(--accent); backgrou
      too generous and the tab bar ran off the side of the screen. Worse, the
      narrow-phone rules below key off a width the layout never actually had.
      At 1 the numbers in this block are the numbers on the glass. */
-  :root { --ui-scale: 1; --header: 56px; --adjust-drawer: 176px; }
+  :root { --ui-scale: 1; --header: 56px; --adjust-drawer: 100px; }
 
   .app {
     grid-template-columns: minmax(0, 1fr);
@@ -1980,9 +1980,10 @@ button.picker-ratio:hover:not(:disabled) { border-color: var(--accent); backgrou
   }
   /* The picture keeps the room above the drawer rather than sitting under it:
      the stage shrinks by exactly the drawer's height while Adjust is the job. */
+  body:has(.adjust-rows[data-editing="true"]) { --adjust-drawer: 64px; }
   body.is-adjusting .stage-col { padding-bottom: var(--adjust-drawer); }
   /* Everything that is not a control goes: the mark, the heading, the sentence
-     of reassurance. Three rows: the group, the channel, the one slider. */
+     of reassurance. Two picker rows give way to one slider row after a channel is chosen. */
   .adjust .adjust-keep, .adjust-head .adjust-mark, .adjust-head h2 { display: none; }
   .adjust-head { position: absolute; right: 10px; top: 6px; z-index: 2; padding: 0; }
   .adjust-reset { min-height: 32px; padding: 0 10px; font-size: 12px; }
@@ -1993,7 +1994,7 @@ button.picker-ratio:hover:not(:disabled) { border-color: var(--accent); backgrou
     -webkit-overflow-scrolling: touch;
   }
   .adjust-tabs::-webkit-scrollbar, .adjust-chips::-webkit-scrollbar { display: none; }
-  .adjust-tabs { padding-right: 90px; }
+  .adjust-tabs { margin-right: 82px; }
   .adjust-tab, .adjust-chip {
     flex: 0 0 auto;
     min-height: 34px; padding: 0 12px;
@@ -2012,7 +2013,24 @@ button.picker-ratio:hover:not(:disabled) { border-color: var(--accent); backgrou
   .adjust-group[open] { border: 0; background: none; }
   .adjust-group summary { display: none; }
   .adjust-group-body { gap: 8px; padding: 0; }
+  .adjust-group:not([open]) { display: none; }
+  .adjust-rows:not([data-editing="true"]) .adjust-row { display: none; }
+  .adjust-rows[data-editing="true"] .adjust-tabs,
+  .adjust-rows[data-editing="true"] .adjust-chips,
+  .adjust:has(.adjust-rows[data-editing="true"]) .adjust-head { display: none; }
   .adjust-row:not([data-active="true"]) { display: none; }
+  .adjust-rows[data-editing="true"] .adjust-row[data-active="true"] {
+    display: grid; grid-template-columns: 36px minmax(48px, 88px) minmax(60px, 1fr) 44px;
+    align-items: center; gap: 6px;
+  }
+  .adjust-rows[data-editing="true"] .adjust-row-head { display: contents; }
+  .adjust-back {
+    display: block; min-width: 36px; min-height: 44px; padding: 0;
+    border: 0; background: transparent; color: var(--accent); font-size: 30px;
+  }
+  .adjust-row label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .adjust-row .adjust-value { grid-column: 4; grid-row: 1; min-width: 44px; }
+  .adjust-row input[type="range"] { grid-column: 3; grid-row: 1; }
   .adjust-row-head { min-height: 24px; }
   .adjust-row label { font-size: 13px; color: var(--ink-2); }
   .adjust-value { min-width: 52px; min-height: 32px; font-size: 12.5px; }

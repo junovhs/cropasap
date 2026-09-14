@@ -449,7 +449,18 @@ export function createAdjustPanel({ rows, reset, onChange, onAnnounce }: AdjustP
   const chips = new Map<AdjustmentKey, HTMLButtonElement>();
   const rowByKey = new Map<AdjustmentKey, HTMLDivElement>();
 
+  let activeChannel: AdjustmentKey | null = null;
+
+  function showPicker(): void {
+    rows.dataset.editing = 'false';
+    const previous = activeChannel;
+    activeChannel = null;
+    if (previous) chips.get(previous)?.focus();
+  }
+
   function showGroup(name: AdjustmentGroup): void {
+    rows.dataset.editing = 'false';
+    activeChannel = null;
     for (const [other, details] of groups) details.open = other === name;
     for (const tab of tabs.querySelectorAll<HTMLButtonElement>('.adjust-tab')) {
       tab.setAttribute('aria-selected', String(tab.dataset.group === name));
@@ -458,11 +469,13 @@ export function createAdjustPanel({ rows, reset, onChange, onAnnounce }: AdjustP
   function showChannel(key: AdjustmentKey): void {
     const entry = CHANNELS.find((channel) => channel.key === key);
     if (!entry) return;
+    activeChannel = key;
+    rows.dataset.editing = 'true';
     for (const channel of CHANNELS) {
-      if (channel.group !== entry.group) continue;
       rowByKey.get(channel.key)?.setAttribute('data-active', String(channel.key === key));
       chips.get(channel.key)?.setAttribute('aria-selected', String(channel.key === key));
     }
+    controls.get(key)?.input.focus();
   }
 
   for (const groupName of ['Light', 'Tone', 'Color', 'Effects', 'Grain'] as const) {
@@ -500,6 +513,11 @@ export function createAdjustPanel({ rows, reset, onChange, onAnnounce }: AdjustP
     const row = document.createElement('div');
     row.className = 'adjust-row';
     row.dataset.channel = entry.key;
+    const back = document.createElement('button');
+    back.type = 'button'; back.className = 'adjust-back';
+    back.textContent = '‹';
+    back.setAttribute('aria-label', 'Back to adjustment controls');
+    back.addEventListener('click', showPicker);
     const header = document.createElement('div');
     header.className = 'adjust-row-head';
     const id = `adj-${entry.key}`;
@@ -524,7 +542,7 @@ export function createAdjustPanel({ rows, reset, onChange, onAnnounce }: AdjustP
       value = { ...value, [entry.key]: initialFor(entry) };
       paint(); onChange(value); onAnnounce?.(`${entry.label} reset`); input.focus();
     });
-    header.append(label, zero); row.append(header, input);
+    header.append(label, zero); row.append(back, header, input);
     groups.get(entry.group)?.querySelector('.adjust-group-body')?.append(row);
     controls.set(entry.key, { input, zero });
     rowByKey.set(entry.key, row);
@@ -537,11 +555,14 @@ export function createAdjustPanel({ rows, reset, onChange, onAnnounce }: AdjustP
     chipsByGroup.get(entry.group)?.append(chip);
     chips.set(entry.key, chip);
   }
-  // The first channel of each group is the one on screen until another is picked.
-  for (const name of groups.keys()) {
-    const first = CHANNELS.find((channel) => channel.group === name);
-    if (first) showChannel(first.key);
-  }
+  rows.dataset.editing = 'false';
+  rows.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && activeChannel && matchMedia('(max-width: 900px)').matches) {
+      event.preventDefault();
+      event.stopPropagation();
+      showPicker();
+    }
+  });
 
   reset.addEventListener('click', () => {
     value = neutral(); paint(); onChange(value); onAnnounce?.('Adjustments reset');
