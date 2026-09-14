@@ -2344,3 +2344,20 @@ body.dragging .empty-inner { border-color: var(--accent); background: var(--acce
 @media (prefers-reduced-motion: reduce) { .brand-home .brand-mark, .brand-credit, .brand-hint { transition: none; } }
 .alpha-note { color: var(--accent-2); font-weight: 500; }
 .alpha-note[hidden] { display: none; }
+
+/* Convert contains a complete file operation, not a single adjustment slider.
+   Its controls must remain reachable even on a short phone in landscape. */
+@media (max-width: 900px) {
+  .adjust.convert {
+    height: auto;
+    max-height: calc(100dvh - var(--header) - 80px);
+    overflow-y: auto;
+    padding: 16px;
+    overscroll-behavior: contain;
+  }
+  .convert .adjust-head { position: static; padding: 0; }
+  .convert .adjust-head h2, .convert .adjust-head .adjust-mark,
+  .convert .adjust-keep { display: block; }
+  .convert .segmented button { min-height: 44px; }
+  .convert-row input[type="range"] { min-width: 0; height: 44px; }
+}
