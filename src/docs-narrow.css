@@ -1,0 +1,72 @@
+/* The documentation contents nav on a phone.
+   dopedocs draws the nav as a 154px vertical strip below 860px. As a scroll
+   container its grid row collapses to its padding, so the reading column
+   paints over it and the identity card lands on top of the list; what does
+   show is cut mid-item. Both the in-app panel and the static /docs pages
+   load this sheet, so one rule set covers both. */
+
+@media (max-width: 860px) {
+  .dd-nav,
+  .dd-static .dd-nav {
+    position: static;
+    height: auto;
+    max-height: none;
+    padding: 12px 0 0;
+    overflow: visible;
+  }
+
+  .dd-nav-label {
+    margin: 0 20px 8px;
+  }
+
+  /* One row of chips, scrolled sideways. Nested lists flatten into the row. */
+  .dd-nav > .dd-nav-list {
+    display: flex;
+    gap: 6px;
+    padding: 0 20px 12px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .dd-nav > .dd-nav-list::-webkit-scrollbar {
+    display: none;
+  }
+
+  .dd-nav-list li {
+    display: flex;
+    gap: 6px;
+    flex: 0 0 auto;
+    margin: 0;
+  }
+  .dd-nav-list li + li {
+    margin-top: 0;
+  }
+
+  .dd-nav-list .dd-nav-list,
+  .dd-nav-group > .dd-nav-list,
+  .dd-static .dd-nav-list .dd-nav-list {
+    display: contents;
+  }
+
+  .dd-nav-group {
+    display: flex;
+    gap: 6px;
+  }
+
+  .dd-nav-link,
+  .dd-nav-group > summary {
+    display: block;
+    padding: 6px 12px;
+    border: 1px solid var(--dd-line);
+    border-radius: 999px;
+    background: var(--dd-panel);
+    white-space: nowrap;
+  }
+  .dd-nav-link.is-active {
+    border-color: var(--dd-accent);
+  }
+  .dd-nav-group > summary::before {
+    display: none;
+  }
+}

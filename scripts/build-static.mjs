@@ -57,6 +57,7 @@ await build({ entryPoints: ['src/main.ts'], outfile: 'dist/src/main.js', bundle:
 mkdirSync('dist/docs', { recursive: true });
 cpSync('node_modules/dopedocs/styles/dopedocs.css', 'dist/docs/dopedocs.css');
 cpSync('src/docs-theme.css', 'dist/docs/docs-theme.css');
+cpSync('src/docs-narrow.css', 'dist/docs/docs-narrow.css');
 
 // The content module is TypeScript that imports a package; bundle it for Node
 // once, import it, and throw the bundle away.
@@ -74,7 +75,7 @@ let tree;
 try {
   tree = buildStatic(
     { ...docsContent, entity: { ...docsContent.entity, url: siteUrl } },
-    { entityType: 'SoftwareApplication', stylesheet: ['/docs/dopedocs.css', '/docs/docs-theme.css'] },
+    { entityType: 'SoftwareApplication', stylesheet: ['/docs/dopedocs.css', '/docs/docs-theme.css', '/docs/docs-narrow.css'] },
   );
 } catch (error) {
   if (error instanceof InvalidDocumentError) throw new Error(`[dopedocs] ${error.message}`);
