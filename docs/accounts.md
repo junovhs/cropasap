@@ -44,19 +44,50 @@ order by opted_in_at;
 Only ever mail confirmed addresses, and honour the box: an unticked box is an
 unsubscribe.
 
-## Dashboard settings that must be right before launch
+## Dashboard state (checked 2026-09-13)
 
-1. **Redirect URLs** (Authentication → URL Configuration). Add
-   `https://cropasap.vercel.app/` and `https://cropasap.vercel.app/**`, plus any
-   custom domain. Without them, confirmation and reset links send people to the
-   project's site URL, which is AIfoodpal.
-2. **Email sending.** The project is on Supabase's built-in mailer, which
-   allows only a few messages per hour — a sign-up during testing already hit
-   `over_email_send_rate_limit`. Before a launch, configure custom SMTP
-   (Authentication → SMTP Settings; Resend, Postmark, etc.) or a Product Hunt
-   day will produce "Try again in a few minutes" for most sign-ups.
-3. **Email templates.** They are shared across the apps; make sure the
-   confirmation and recovery templates do not name one product.
+Done, and verified in production:
+
+- **Redirect URLs** (Authentication → URL Configuration) include
+  `https://cropasap.vercel.app/` and `https://cropasap.vercel.app/**`. A
+  confirmation link now lands on CropASAP, not the project's site URL
+  (AIfoodpal). Add any custom domain the same way.
+- **Size sync migration** applied; `public.cropasap_sizes` and
+  `cropasap_save_sizes` exist and refuse `anon` (checked over REST).
+- **Email templates** are the Supabase defaults and name no product.
+
+Still open:
+
+1. **Custom SMTP** (Authentication → Emails → SMTP Settings) is off, so the
+   built-in mailer's few-messages-per-hour limit applies and a launch day will
+   show "Try again in a few minutes" to most sign-ups. Resend and Postmark
+   need a sending domain you control — `vercel.app` cannot be verified — so
+   this waits on a domain. Templates are also locked until SMTP is set.
+2. **Scanner-proof links.** See below; needs the template edit, so also waits
+   on SMTP.
+3. **Test account.** `jgary2110+cropasap-test@gmail.com` exists from the live
+   test (confirmed, opted in). Delete it from Users before exporting the list.
+
+## Verified live (2026-09-13, Chrome + Firefox against cropasap.vercel.app)
+
+Sign-up sent the confirmation email; the account card read "Synced"; a pin
+made in one browser appeared in the other after sign-in; the first sign-in on
+the second browser merged its guest pin into the account (both pins in both
+browsers); an unpin in one browser removed it in the other; signing out put the
+second browser's own guest pin back. Consent metadata carried the four keys
+above with the exact wording. Password sign-in worked on both.
+
+### Gmail opens the link first
+
+Gmail's link scanner fetched the one-time confirmation link 24 seconds after
+it was sent. That fetch confirmed the account and spent the token, so the
+person's own click landed on
+`/?error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired`.
+The account is fine; the app (since ACCT-03) explains this and puts the
+sign-in form up, and password sign-in succeeds. The proper fix, once SMTP
+unlocks templates, is a confirmation link that carries `{{ .TokenHash }}` to
+the app, which then calls `verifyOtp` on a human action — a scanner's fetch
+cannot spend that.
 
 ## Size sync
 
