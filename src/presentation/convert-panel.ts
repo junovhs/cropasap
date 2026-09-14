@@ -7,7 +7,7 @@
 // stop believing.
 
 import { FORMATS, DEFAULT_TEMPLATE } from '../export.js';
-import { convertAndDownload, convertOne, readableBytes } from '../convert.js';
+import { convertAndDownload, convertOne, readableBytes, SizeBudgetError } from '../convert.js';
 import { requiredElement, requiredElements } from '../infrastructure/dom.js';
 import { sourceDimensions } from '../infrastructure/image-decoder.js';
 import type { AppState, CropItem, ExportFormat } from '../domain/types.js';
@@ -60,6 +60,20 @@ export function createConvertPanel({
   const qualityRow = $<HTMLElement>('#convertQualityRow');
   const qualityInput = $<HTMLInputElement>('#convertQuality');
   const qualityValue = $<HTMLElement>('#convertQualityValue');
+  const budgetRow = $<HTMLElement>('#convertBudgetRow');
+  const budgetInput = $<HTMLInputElement>('#convertBudget');
+  const smallestButton = $<HTMLButtonElement>('#convertSmallest');
+  let smallestChoice: SizeBudgetError | null = null;
+
+  const targetBytes = (): number | undefined =>
+    FORMATS[format].lossy && budgetInput.value !== '' ? Number(budgetInput.value) * 1000 : undefined;
+  const validBudget = (): boolean => !FORMATS[format].lossy || budgetInput.validity.valid;
+
+  function offerSmallest(error: unknown): void {
+    smallestChoice = error instanceof SizeBudgetError ? error : null;
+    smallestButton.hidden = !smallestChoice;
+    if (smallestChoice) smallestButton.textContent = `Use quality ${Math.round(smallestChoice.quality * 100)} without a limit`;
+  }
 
   function describeSource(): void {
     const items = convertItems(getState());
@@ -93,8 +107,17 @@ export function createConvertPanel({
       return;
     }
 
-    resultLine.textContent = 'Measuring…';
-    void convertOne(first, { format, quality }).then((blob) => {
+    if (!validBudget()) {
+      resultLine.textContent = 'Enter a whole number from 1 to 1,000,000 KB, or leave the limit empty.';
+      resultLine.classList.add('is-worse');
+      return;
+    }
+    const budget = targetBytes();
+    resultLine.textContent = budget === undefined ? 'Measuring…' : 'Finding the best quality that fits…';
+    void convertOne(first, { format, quality, targetBytes: budget }, (fraction) => {
+      if (token !== estimateToken) throw new Error('Estimate superseded');
+      resultLine.textContent = `Finding a fit… ${Math.round(fraction * 100)}%`;
+    }).then((blob) => {
       if (token !== estimateToken) return;
       const from = first.file.size;
       const to = blob.size;
@@ -111,6 +134,7 @@ export function createConvertPanel({
       }
     }).catch((error: unknown) => {
       if (token !== estimateToken) return;
+      offerSmallest(error);
       resultLine.textContent = error instanceof Error ? error.message : 'Could not encode that format';
       resultLine.classList.add('is-worse');
     });
@@ -125,6 +149,9 @@ export function createConvertPanel({
     // that is briefly wrong is worse than one that is briefly absent.
     estimateToken += 1;
     resultLine.textContent = '';
+    offerSmallest(null);
+    // Cropping must never pay for speculative conversion encodes in a hidden room.
+    if ($<HTMLElement>('#convert').hidden || converting) return;
     estimateTimer = setTimeout(estimate, ESTIMATE_DELAY);
   }
 
@@ -136,14 +163,19 @@ export function createConvertPanel({
    */
   function refresh(outcome?: string): void {
     const items = convertItems(getState());
-    button.disabled = !items.length || converting;
+    button.disabled = !items.length || converting || !validBudget();
+    budgetInput.disabled = converting;
+    qualityInput.disabled = converting || targetBytes() !== undefined;
+    qualityValue.textContent = targetBytes() !== undefined ? 'Auto' : qualityInput.value;
+    smallestButton.disabled = converting;
+    for (const option of $$<HTMLButtonElement>('#convertFormatGroup button')) option.disabled = converting;
     buttonLabel.textContent = converting
       ? 'Converting…'
       : items.length > 1 ? `Convert ${items.length} images` : 'Convert';
     noteLine.textContent = outcome ?? (!items.length
       ? 'Drop an image to convert it.'
-      : items.length > 1 ? 'Downloads as one ZIP. Pixels are left exactly as they are.'
-      : 'Downloads as a single file. Pixels are left exactly as they are.');
+      : items.length > 1 ? 'Downloads as one ZIP. Original dimensions are preserved.'
+      : 'Downloads as a single file. Original dimensions are preserved.');
     describeSource();
   }
 
@@ -153,6 +185,7 @@ export function createConvertPanel({
       option.setAttribute('aria-checked', String(option.dataset.format === next));
     }
     qualityRow.hidden = !FORMATS[next].lossy;
+    budgetRow.hidden = !FORMATS[next].lossy;
     refresh();
     scheduleEstimate();
     announce(`Convert to ${FORMATS[next].label}`);
@@ -171,9 +204,29 @@ export function createConvertPanel({
     scheduleEstimate();
   });
 
+  budgetInput.addEventListener('input', () => {
+    refresh();
+    scheduleEstimate();
+  });
+
+  smallestButton.addEventListener('click', () => {
+    if (!smallestChoice || converting) return;
+    quality = smallestChoice.quality;
+    qualityInput.value = String(Math.round(quality * 100));
+    budgetInput.value = '';
+    refresh();
+    scheduleEstimate();
+    announce('Size limit removed. Review the result, then convert to download.');
+  });
+
   button.addEventListener('click', async () => {
     const items = convertItems(getState());
     if (!items.length || converting) return;
+    if (!validBudget()) { budgetInput.reportValidity(); return; }
+    if (estimateTimer !== null) clearTimeout(estimateTimer);
+    estimateToken += 1;
+    const options = { format, quality, targetBytes: targetBytes(), template: DEFAULT_TEMPLATE };
+    offerSmallest(null);
     converting = true;
     button.classList.remove('is-done');
     fill.style.opacity = '1';
@@ -188,7 +241,7 @@ export function createConvertPanel({
     try {
       const result = await convertAndDownload(
         items,
-        { format, quality, template: DEFAULT_TEMPLATE },
+        options,
         (progress) => { fill.style.width = `${progress * 100}%`; },
       );
       ok = true;
@@ -197,6 +250,7 @@ export function createConvertPanel({
       const verb = result.delivery === 'shared' ? 'shared' : result.delivery === 'cancelled' ? 'cancelled' : 'downloaded';
       announce(`${result.count} file${result.count === 1 ? '' : 's'} ${verb}${result.delivery === 'cancelled' ? '' : ` as ${result.filename}`}`);
     } catch (error: unknown) {
+      offerSmallest(error);
       const message = error instanceof Error ? error.message : String(error);
       outcome = `Convert failed: ${message}`;
       announce(`Convert failed: ${message}`);
@@ -208,7 +262,9 @@ export function createConvertPanel({
     if (ok) {
       button.classList.add('is-done');
       buttonLabel.textContent = 'Downloaded';
+      const outcomeToken = estimateToken;
       setTimeout(() => {
+        if (outcomeToken !== estimateToken) return;
         button.classList.remove('is-done');
         // The size line stays; only the button goes back to offering the job.
         refresh(outcome);

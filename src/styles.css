@@ -2361,3 +2361,10 @@ body.dragging .empty-inner { border-color: var(--accent); background: var(--acce
   .convert .segmented button { min-height: 44px; }
   .convert-row input[type="range"] { min-width: 0; height: 44px; }
 }
+
+.convert-budget { display: grid; grid-template-columns: auto minmax(80px, 1fr) auto; align-items: center; gap: 8px; margin-top: 12px; font-size: 12px; }
+.convert-budget[hidden] { display: none; }
+.convert-budget input { min-width: 0; width: 100%; min-height: 36px; padding: 6px 8px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink); font-size: 16px; }
+.convert-budget p { grid-column: 1 / -1; }
+.convert-smallest { width: 100%; margin-top: 8px; white-space: normal; }
+.convert .segmented button[aria-checked="true"]:hover { background: var(--accent); color: #fff; }

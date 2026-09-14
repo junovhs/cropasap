@@ -270,7 +270,7 @@ export const docsContent = defineDocs({
       title: 'Convert',
       question: 'How do I convert an image to WebP, PNG or JPEG without cropping it?',
       answer:
-        'Convert re-encodes the file as WebP, PNG or JPEG and changes nothing else - same pixels, same dimensions.',
+        'Convert re-encodes the file as WebP, PNG or JPEG without cropping or resizing. JPEG and WebP can also fit under a file-size limit by adjusting quality.',
       keywords: ['convert to webp', 'png to jpg', 'image converter'],
       blocks: [
         {
@@ -278,7 +278,8 @@ export const docsContent = defineDocs({
           before: { title: 'Export', text: 'A crop, written to a size.' },
           after: { title: 'Convert', text: 'The same image, in a different format.' },
         },
-        { kind: 'p', text: 'JPEG and WebP show an estimated file size as you move the quality slider. Several files convert into one ZIP.' },
+        { kind: 'p', text: 'JPEG and WebP show an estimated file size as you move the quality slider. Set Fit under in KB to search for the highest quality that meets your limit. The limit applies to each image, not the ZIP. Original dimensions stay unchanged; the quality setting becomes automatic. Leave it empty for manual quality. Several files convert into one ZIP.' },
+        { kind: 'p', text: 'If a limit cannot be met within the available quality range, CropASAP reports the smallest result found and does not download an oversized file. You can remove the limit and use that quality explicitly. PNG is lossless and has no quality-based size limit.' },
         { kind: 'details', summary: 'When the format is not available', text: 'If the browser cannot write the format, Convert says so. It never hands you a PNG with the wrong extension.' },
       ],
     },

@@ -248,7 +248,14 @@
             <output id="convertQualityValue" for="convertQuality">86</output>
           </div>
 
-          <p id="convertResult" class="convert-result"></p>
+          <div id="convertBudgetRow" class="convert-budget">
+            <label for="convertBudget">Fit under</label>
+            <input id="convertBudget" type="number" inputmode="numeric" min="1" max="1000000" step="1" placeholder="No limit" aria-describedby="convertBudgetHint">
+            <span>KB</span>
+            <p id="convertBudgetHint">Per image. Keeps the original dimensions.</p>
+          </div>
+          <p id="convertResult" class="convert-result" role="status"></p>
+          <button id="convertSmallest" class="secondary convert-smallest" type="button" hidden>Use smallest without a limit</button>
 
           <button id="convertGo" class="primary convert-go" type="button" disabled>
             <span id="convertFill" class="export-fill"></span>

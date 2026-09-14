@@ -13,6 +13,7 @@
 // pixels instead — the encoders, the naming, the ZIP — because those are about
 // files rather than about images.
 
+import { searchSizeBudget } from './application/size-budget.js';
 import { makeZip } from './zip.js';
 import { FORMATS, deliver, encode, expandName, sanitize, unique, type Delivery } from './export.js';
 import { canvasContext } from './infrastructure/dom.js';
@@ -23,6 +24,7 @@ export interface ConvertOptions {
   readonly format: ExportFormat;
   readonly quality: number;
   readonly template: string;
+  readonly targetBytes?: number;
 }
 
 export interface ConvertedFile {
@@ -57,6 +59,14 @@ export function surfaceOf(image: HTMLImageElement, format: ExportFormat): HTMLCa
   return canvas;
 }
 
+/** An unmet budget never silently becomes an oversized download. */
+export class SizeBudgetError extends Error {
+  constructor(readonly smallestBytes: number, readonly quality: number, name: string, targetBytes: number) {
+    super(`${name} cannot fit under ${readableBytes(targetBytes)} without resizing. Smallest found: ${smallestBytes.toLocaleString()} bytes at quality ${Math.round(quality * 100)}.`);
+    this.name = 'SizeBudgetError';
+  }
+}
+
 /**
  * One image, converted. The pixel dimensions of the result equal the source's.
  *
@@ -69,18 +79,36 @@ export function surfaceOf(image: HTMLImageElement, format: ExportFormat): HTMLCa
  */
 export async function convertOne(
   item: CropItem,
-  { format, quality }: Pick<ConvertOptions, 'format' | 'quality'>,
+  { format, quality, targetBytes }: Pick<ConvertOptions, 'format' | 'quality' | 'targetBytes'>,
+  onProgress?: (fraction: number) => void,
 ): Promise<Blob> {
+  if (targetBytes !== undefined && !FORMATS[format].lossy) {
+    throw new Error('File size limits are available for JPEG and WebP');
+  }
   const original = await decodeOriginal(item.file);
+  let surface: HTMLCanvasElement | undefined;
   let blob: Blob;
   try {
-    blob = await encode(surfaceOf(original, format), format, quality);
+    const canvas = surfaceOf(original, format);
+    surface = canvas;
+    const encodeAtQuality = async (q: number): Promise<Blob> => {
+      const encoded = await encode(canvas, format, q);
+      const { mime, label } = FORMATS[format];
+      if (format !== 'png' && encoded.type && encoded.type !== mime) {
+        throw new Error(`This browser cannot write ${label}`);
+      }
+      return encoded;
+    };
+    if (targetBytes !== undefined) {
+      const result = await searchSizeBudget(encodeAtQuality, targetBytes, onProgress);
+      if (!result.met) throw new SizeBudgetError(result.blob.size, result.quality, item.file.name, targetBytes);
+      blob = result.blob;
+    } else {
+      blob = await encodeAtQuality(quality);
+    }
   } finally {
     original.src = '';
-  }
-  const { mime, label } = FORMATS[format];
-  if (format !== 'png' && blob.type && blob.type !== mime) {
-    throw new Error(`This browser cannot write ${label}`);
+    if (surface) { surface.width = 0; surface.height = 0; }
   }
   return blob;
 }
@@ -101,7 +129,7 @@ export async function convertAll(
   const files: ConvertedFile[] = [];
 
   for (const [index, item] of items.entries()) {
-    const blob = await convertOne(item, options);
+    const blob = await convertOne(item, options, (fraction) => onProgress?.((index + fraction) / items.length));
     const source = sourceDimensions(item.image);
     const ext = EXT_BY_MIME[blob.type] ?? FORMATS[options.format].ext;
     files.push({
