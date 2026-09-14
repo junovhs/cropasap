@@ -7,6 +7,8 @@ const NOISE = new Set<string>([
   'image', 'images', 'img', 'size', 'sizes', 'dimension', 'dimensions', 'pixel',
   'pixels', 'px', 'photo', 'photos', 'pic', 'pics', 'picture', 'for', 'the', 'a',
   'an', 'my', 'to', 'on', 'in', 'of', 'and', 'please', 'crop', 'make', 'i', 'want',
+  'need', 'this', 'that', 'these', 'as', 'into', 'resize', 'resizing', 'cropping',
+  'me', 'it', 'can', 'could', 'you', 'help', 'with',
 ]);
 
 const norm = (value: string): string => value
@@ -142,12 +144,14 @@ function matchSaved(saved: readonly SavedSize[], tokens: readonly string[]): Sav
 }
 
 function parseDimensions(query: string): Dimensions | null {
-  const match = query.match(/(\d{1,5})\s*(?:x|×|\*|by|\/|\s)\s*(\d{1,5})/i);
+  const match = query.match(/(?:^|[^\d.])(\d{1,5})\s*(?:px|pixels?)?\s*(?:x|×|\*|by|\/|\s)\s*(\d{1,5})(?![\d.:])/i);
   if (!match) return null;
   const w = Number(match[1]);
   const h = Number(match[2]);
   if (!(w > 0 && h > 0) || w > 16384 || h > 16384) return null;
-  if (w < 50 && h < 50) return null;
+  // Small unqualified pairs (4x5) remain shapes; an explicit pixel unit
+  // makes even a 1x1 request an exact output size.
+  if (w < 50 && h < 50 && !/\b(?:px|pixels?)\b|\dpx\b/.test(query)) return null;
   return { w, h };
 }
 
@@ -156,7 +160,7 @@ interface ParsedRatio extends Dimensions {
 }
 
 function parseRatio(query: string): ParsedRatio | null {
-  const match = query.match(/(\d{1,3})(?:\.\d+)?\s*[:x×/]\s*(\d{1,3})(?:\.\d+)?/i);
+  const match = query.match(/(?:^|[^\d.])(\d{1,3}(?:\.\d+)?)\s*[:x×/]\s*(\d{1,3}(?:\.\d+)?)(?![\d.])/i);
   if (!match) return null;
   const a = Number(match[1]);
   const b = Number(match[2]);
@@ -287,7 +291,7 @@ export function search(
   const bare = query.match(/^(\d{2,5})$/);
   if (bare) {
     const size = Number(bare[1]);
-    push({ ...row('custom', `${size} × ${size}`, 'Square', size, size), section: 'Sizes' });
+    if (size <= 16384) push({ ...row('custom', `${size} × ${size}`, 'Square', size, size), section: 'Sizes' });
   }
 
   return output;

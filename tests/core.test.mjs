@@ -142,3 +142,34 @@ test('ZIP writer emits a valid empty-free archive envelope', async () => {
   assert.equal(view.getUint32(bytes.length - 22, true), 0x06054b50);
   assert.equal(zip.type, 'application/zip');
 });
+
+
+test('destination search understands a plain-language banner request', () => {
+  for (const query of ['I need this image as a Facebook header banner', 'please resize this for a youtube thumbnail']) {
+    const short = query.includes('Facebook') ? 'facebook header banner' : 'youtube thumbnail';
+    assert.equal(search(query)[0]?.id, search(short)[0]?.id);
+    assert.ok(search(query).length > 0);
+  }
+});
+
+test('explicit tiny pixel sizes remain exact while unqualified small pairs remain ratios', () => {
+  for (const query of ['32 x 32 pixels', 'resize to 32px x 32px', '1 by 1 pixel', '16 × 9 px']) {
+    const result = search(query).find((row) => row.kind === 'custom');
+    const [w, h] = query.match(/\d+/g).map(Number);
+    assert.equal(result?.w, w, query);
+    assert.equal(result?.h, h, query);
+  }
+  assert.equal(search('4x5')[0]?.w / search('4x5')[0]?.h, 4 / 5);
+  assert.equal(search('16:9')[0]?.w / search('16:9')[0]?.h, 16 / 9);
+});
+
+test('decimal ratios keep both fractional components and reject partial invalid numbers', () => {
+  for (const [query, ratio] of [['1.91:1', 1.91], ['2.39:1', 2.39], ['0.5:1', 0.5], ['3:1.5', 2], ['1.91x1', 1.91]]) {
+    const result = search(query)[0];
+    assert.ok(result, query);
+    assert.ok(Math.abs(result.w / result.h - ratio) < 0.003, query);
+  }
+  for (const query of ['0:1', '1:0', '32768x32768', '99999', '123456 x 789012']) {
+    assert.equal(search(query).filter((row) => row.kind === 'custom').length, 0, query);
+  }
+});
