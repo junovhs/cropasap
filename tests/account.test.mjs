@@ -58,3 +58,15 @@ test('an opt-in is read from metadata written by any sibling app', () => {
   assert.equal(hasOptedIn({}), false);
   assert.equal(hasOptedIn(null), false);
 });
+
+test('a broken emailed link is explained in plain words, from the query or the hash', async () => {
+  const { linkProblem, withoutLinkProblem } = await import('../dist/src/account.js');
+  const expired = 'error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired';
+  assert.match(linkProblem(`?${expired}`, ''), /already used or has expired.*sign in with your password/);
+  assert.match(linkProblem('', `#${expired}`), /already used or has expired/);
+  assert.match(linkProblem('?error=server_error&error_code=unexpected_failure', ''), /could not be used/);
+  assert.equal(linkProblem('', ''), null);
+  assert.equal(linkProblem('?code=abc', '#access_token=x'), null);
+  assert.deepEqual(withoutLinkProblem(`?${expired}`, `#${expired}`), { search: '', hash: '' });
+  assert.deepEqual(withoutLinkProblem('?keep=1&error_code=otp_expired', '#type=recovery&error=x'), { search: '?keep=1', hash: '#type=recovery' });
+});

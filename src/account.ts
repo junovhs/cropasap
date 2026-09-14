@@ -39,6 +39,38 @@ function urlCarriesAuth(): boolean {
     || /[?&]code=/.test(search);
 }
 
+/**
+ * What to tell the person when an emailed link arrives here broken. Supabase
+ * reports the failure in the query, the hash, or both. Null when the URL is
+ * clean. The common case is not a real expiry: a mail scanner (Gmail's, in
+ * particular) opens the one-time link first, which confirms the account and
+ * spends the token before the human clicks — so the honest advice is to sign in.
+ */
+export function linkProblem(search: string, hash: string): string | null {
+  const params = new URLSearchParams(search.replace(/^\?/, ''));
+  for (const [key, value] of new URLSearchParams(hash.replace(/^#/, ''))) {
+    if (!params.has(key)) params.set(key, value);
+  }
+  const code = params.get('error_code');
+  const description = params.get('error_description');
+  if (!params.get('error') && !code && !description) return null;
+  if (code === 'otp_expired' || /expired/i.test(description ?? '')) {
+    return 'That link was already used or has expired. If you just created an account it is most likely confirmed — sign in with your password. Otherwise request a new link.';
+  }
+  return 'That link could not be used. Sign in, or request a new link.';
+}
+
+/** The auth error parameters, and nothing else, removed from a URL's query and hash. */
+export function withoutLinkProblem(search: string, hash: string): { search: string; hash: string } {
+  const strip = (raw: string, lead: string): string => {
+    const params = new URLSearchParams(raw.replace(new RegExp(`^\\${lead}`), ''));
+    for (const key of ['error', 'error_code', 'error_description']) params.delete(key);
+    const rest = params.toString();
+    return rest ? `${lead}${rest}` : '';
+  };
+  return { search: strip(search, '?'), hash: strip(hash, '#') };
+}
+
 const $ = <T extends Element = HTMLElement>(selector: string): T => requiredElement<T>(selector);
 
 /** The few sign-up refusals a person can act on, in their words rather than the API's. */
@@ -269,6 +301,16 @@ export function createAccount(options: AccountOptions = {}): AccountController {
   // library before anyone clicks.
   if (hasStoredSession(service) || urlCarriesAuth()) {
     void ensureClient().catch(() => { /* offline: the button still works later */ });
+  }
+  // A broken emailed link must not land in silence: say what happened and
+  // put the sign-in form up, with the failure gone from the address bar.
+  const problem = linkProblem(location.search, location.hash);
+  if (problem) {
+    const clean = withoutLinkProblem(location.search, location.hash);
+    history.replaceState(history.state, '', `${location.pathname}${clean.search}${clean.hash}`);
+    mode = /type=recovery/.test(location.hash) ? 'new-password' : 'sign-in';
+    open();
+    say(problem, true);
   }
 
   return {
