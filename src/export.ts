@@ -215,15 +215,28 @@ export function expandName(template: string, ctx: FilenameContext): string {
   return `${sanitize(body)}.${ctx.ext}`;
 }
 
+/** Name every output uniquely, reserving original names before adding suffixes. */
 export function unique(names: readonly string[]): string[] {
-  const seen = new Map<string, number>();
+  const reserved = new Set(names.map((name) => name.toLowerCase()));
+  const issued = new Set<string>();
+  const suffixes = new Map<string, number>();
   return names.map((name) => {
     const key = name.toLowerCase();
-    const count = seen.get(key) ?? 0;
-    seen.set(key, count + 1);
-    if (!count) return name;
+    if (!issued.has(key)) {
+      issued.add(key);
+      return name;
+    }
     const dot = name.lastIndexOf('.');
-    return `${name.slice(0, dot)}-${count + 1}${name.slice(dot)}`;
+    const stem = dot > 0 ? name.slice(0, dot) : name;
+    const extension = dot > 0 ? name.slice(dot) : '';
+    let suffix = suffixes.get(key) ?? 2;
+    let candidate: string;
+    do {
+      candidate = `${stem}-${suffix++}${extension}`;
+    } while (reserved.has(candidate.toLowerCase()) || issued.has(candidate.toLowerCase()));
+    suffixes.set(key, suffix);
+    issued.add(candidate.toLowerCase());
+    return candidate;
   });
 }
 

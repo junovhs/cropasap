@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { acceptFrame, targetKey, useWholeImage } from '../dist/src/application/framing.js';
-import { expandName } from '../dist/src/export.js';
+import { expandName, unique } from '../dist/src/export.js';
 import { ratioLabel, search, wholeImageInside } from '../dist/src/search.js';
 import { createAppStore } from '../dist/src/state.js';
 import {
@@ -172,4 +172,17 @@ test('decimal ratios keep both fractional components and reject partial invalid 
   for (const query of ['0:1', '1:0', '32768x32768', '99999', '123456 x 789012']) {
     assert.equal(search(query).filter((row) => row.kind === 'custom').length, 0, query);
   }
+});
+
+
+test('ZIP output names never collide with original or generated suffixes', () => {
+  assert.deepEqual(unique(['a.png', 'a-2.png', 'a.png']), ['a.png', 'a-2.png', 'a-3.png']);
+  assert.deepEqual(unique(['a.png', 'a.png', 'a-2.png']), ['a.png', 'a-3.png', 'a-2.png']);
+  assert.deepEqual(unique(['photo', 'photo']), ['photo', 'photo-2']);
+  assert.deepEqual(unique(['A.PNG', 'a.png']), ['A.PNG', 'a-2.png']);
+  const originals = ['summer.png', 'winter.jpg', 'spring.webp'];
+  assert.deepEqual(unique(originals), originals);
+  const tricky = ['a.png', ...Array.from({ length: 80 }, (_, i) => `a-${i + 2}.png`), ...Array(100).fill('a.png'), 'A-2.PNG'];
+  const output = unique(tricky);
+  assert.equal(new Set(output.map((name) => name.toLowerCase())).size, tricky.length);
 });
