@@ -39,6 +39,39 @@ function isEdit(a: AppState, b: AppState): boolean {
     || a.cropMode !== b.cropMode;
 }
 
+// A restored state comes back through the viewfinder, which republishes the
+// framing it lands on — the same crop, give or take what the store keeps: it
+// ignores frame changes under a hundredth of a source pixel, so the last echo
+// can trail the true landing by that much in each number. Half a tenth covers
+// that with room to spare and is still far inside anything a person could do
+// on purpose — one screen pixel at the deepest zoom is a quarter of a source
+// pixel.
+const ECHO = 0.05;
+const near = (a: number, b: number): boolean => Math.abs(a - b) <= ECHO;
+
+/** True when `b` is `a` as the viewfinder would republish it. */
+export function sameEdit(a: AppState, b: AppState): boolean {
+  if (a.batch !== b.batch || a.cropMode !== b.cropMode) return false;
+  if (a.target.w !== b.target.w || a.target.h !== b.target.h) return false;
+  if (a.items.length !== b.items.length) return false;
+  return a.items.every((item, index) => {
+    const other = b.items[index];
+    if (!other || other.id !== item.id || (other.adjust !== item.adjust && !sameAdjust(item, other))) return false;
+    if (item.approved !== other.approved || item.auto !== other.auto) return false;
+    if (!item.frame || !other.frame) return item.frame === other.frame;
+    return near(item.frame.cx, other.frame.cx) && near(item.frame.cy, other.frame.cy)
+      && near(item.frame.cropW, other.frame.cropW) && near(item.frame.cropH, other.frame.cropH);
+  });
+}
+
+function sameAdjust(a: AppState['items'][number], b: AppState['items'][number]): boolean {
+  const keys = new Set([...Object.keys(a.adjust), ...Object.keys(b.adjust)]);
+  for (const key of keys) {
+    if ((a.adjust as Record<string, unknown>)[key] !== (b.adjust as Record<string, unknown>)[key]) return false;
+  }
+  return true;
+}
+
 export function createHistory(options: HistoryOptions): History {
   const { settleMs = 400, limit = 60, onChange, onRestore } = options;
 
@@ -50,12 +83,6 @@ export function createHistory(options: HistoryOptions): History {
   // Our own writes must not be recorded as new edits, or undo would only ever
   // toggle between the last two states.
   let restoring = false;
-  // Putting a state back on screen makes the viewfinder animate into the
-  // restored shape, and it republishes the store on the way. Those echoes are
-  // the restore finishing rather than a new edit — recorded as one, the first
-  // undo would throw the redo stack away. The next settle after a restore is
-  // therefore absorbed into the baseline instead of pushed.
-  let absorbing = false;
 
   const cancelPending = (): void => {
     if (timer !== null) { clearTimeout(timer); timer = null; }
@@ -64,8 +91,14 @@ export function createHistory(options: HistoryOptions): History {
   const commit = (): void => {
     timer = null;
     const settled = store.get();
-    if (absorbing) { absorbing = false; baseline = settled; return; }
-    if (!isEdit(baseline, settled)) { baseline = settled; return; }
+    // Putting a state back on screen makes the viewfinder animate into the
+    // restored shape, and it republishes the store on the way. Those echoes are
+    // the restore finishing rather than a new edit — recorded as one, the first
+    // undo would throw the redo stack away. So a settle that lands on the
+    // baseline itself, within float noise, is folded in rather than pushed;
+    // a real edit made straight after an undo still counts, because it lands
+    // somewhere else.
+    if (!isEdit(baseline, settled) || sameEdit(baseline, settled)) { baseline = settled; return; }
     past.push(baseline);
     if (past.length > limit) past.shift();
     // A fresh edit is a new branch: whatever had been undone is now unreachable.
@@ -100,21 +133,13 @@ export function createHistory(options: HistoryOptions): History {
       restoring = false;
     }
 
-    // The echoes arrive over the next few frames, after `restoring` is back
-    // down. Arm the absorber and guarantee it resolves, so a restore that
-    // happens to produce no echo cannot leave it armed for the next real edit.
-    absorbing = true;
-    cancelPending();
-    timer = setTimeout(commit, settleMs);
-
     onChange();
     return true;
   };
 
   return {
-    // An armed absorber is a restore finishing, not an edit waiting to be
-    // recorded, so it does not count as something to undo.
-    canUndo: () => past.length > 0 || (timer !== null && !absorbing),
+    // A pending settle counts only if it will actually record something.
+    canUndo: () => past.length > 0 || (timer !== null && isEdit(baseline, store.get()) && !sameEdit(baseline, store.get())),
     canRedo: () => future.length > 0,
     undo: () => travel(past, future),
     redo: () => travel(future, past),

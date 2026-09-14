@@ -340,6 +340,7 @@ export function createViewfinder(
   // is and keep the exact crop represented at that instant; otherwise a quick
   // second drag would fight springs that are still heading for the centre.
   function interruptMorph(): void {
+    interruptTravel();
     if (!morph && frameX.settled && frameY.settled && frameW.settled && frameH.settled) return;
     const framing = image ? readFraming() : null;
     frameX.jump(frameX.v);
@@ -350,12 +351,20 @@ export function createViewfinder(
     if (framing) applyFraming(framing);
   }
 
+  // The image springs travel on their own during a restore. A pointer that
+  // arrives mid-flight takes the picture from where it is, not from where it
+  // was heading.
+  function interruptTravel(): void {
+    for (const s of [scale, tx, ty]) if (!s.settled) s.jump(s.v);
+  }
+
   // Wheel, pinch, keyboard and slider gestures operate on the image rather
   // than the crop box. If one begins while the frame is still returning home,
   // finish that return immediately while preserving the crop, then apply the
   // image gesture against the stable canonical frame.
   function normalizeFrameImmediately(): void {
     if (!image) return;
+    interruptTravel();
     const home = canonicalFrame();
     const alreadyHome = !morph
       && Math.abs(frameX.v - home.x) < 0.01
@@ -393,8 +402,12 @@ export function createViewfinder(
     };
   }
 
-  function applyFraming(framing?: Framing | null): void {
-    if (!image) return;
+  // Returns the framing actually put on screen — the requested one, re-fitted
+  // and kept inside the picture. `animate` sends the image there by spring
+  // instead of placing it: a restored crop should travel back the way it was
+  // made, not appear.
+  function applyFraming(framing?: Framing | null, animate = false): Framing | null {
+    if (!image) return null;
     const f = frameRect();
     const { width: iw, height: ih } = sourceDimensions(image);
     // Re-fit the stored crop to the current aspect, keeping its centre. The crop
@@ -408,10 +421,19 @@ export function createViewfinder(
     const cx = clamp(framing ? framing.cx : iw / 2, cropW / 2, iw - cropW / 2);
     const cy = clamp(framing ? framing.cy : ih / 2, cropH / 2, ih - cropH / 2);
     const s = f.w / cropW;
-    scale.jump(s);
-    tx.jump(f.x - (cx - cropW / 2) * s);
-    ty.jump(f.y - (cy - cropH / 2) * s);
+    const x = f.x - (cx - cropW / 2) * s;
+    const y = f.y - (cy - cropH / 2) * s;
+    if (animate) {
+      scale.set(s);
+      tx.set(x);
+      ty.set(y);
+    } else {
+      scale.jump(s);
+      tx.jump(x);
+      ty.jump(y);
+    }
     publish();
+    return { cx, cy, cropW, cropH };
   }
 
   // ---- painting ------------------------------------------------------------
@@ -1023,6 +1045,9 @@ export function createViewfinder(
       loop.kick();
     },
     setImage(next: HTMLImageElement | null, framing?: Framing | null): void {
+      // The same picture handed back with a framing is a restore — undo, redo —
+      // and the crop animates back to it. A new picture is placed outright.
+      const restoring = next !== null && next === image && Boolean(framing);
       image = next;
       previewDirty = true;
       previewSource = null;
@@ -1030,16 +1055,21 @@ export function createViewfinder(
       hoverHandle = null;
       canvas.style.cursor = 'default';
       if (next) {
-        applyFraming(framing);
+        const applied = applyFraming(framing, restoring);
         // An image can arrive while the frame is still travelling toward a new
         // target — dropping a photo now sets the size from the photo, so this is
         // the ordinary case, not a corner. Framing against a rectangle that is
         // on its way somewhere else bakes in the magnification it happened to
         // have at that instant, and the picture lands cropped. Hand the crop to
         // the morph so it is re-derived until the frame actually arrives.
-        if (!frameX.settled || !frameY.settled || !frameW.settled || !frameH.settled) {
-          morph = readFraming();
-        }
+        //
+        // Either way the framing given here is the truth from now on. A morph
+        // seeded a moment earlier — setTarget reads the crop that was on screen
+        // before a restore replaced it — must not be carried on top of it: one
+        // more tick of that morph put the old crop straight back, which is why
+        // undo used to land nowhere.
+        const travelling = !frameX.settled || !frameY.settled || !frameW.settled || !frameH.settled;
+        morph = travelling ? applied ?? readFraming() : null;
       }
       loop.kick();
     },
