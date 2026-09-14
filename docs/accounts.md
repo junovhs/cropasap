@@ -60,6 +60,19 @@ unsubscribe.
 
 ## Size sync
 
-ACCT-02 adds the `cropasap_sizes` table and the sync client. Its migration is
-under `supabase/migrations/` and must be applied with the Supabase CLI or the
-SQL editor; until then, sizes stay local and the account card says so.
+Saved and pinned sizes live in `public.cropasap_sizes`, one revisioned JSON row
+per account (`src/size-sync.ts`). Apply the migration once, either with the
+CLI from a linked checkout —
+
+```sh
+supabase db push
+```
+
+— or by pasting `supabase/migrations/20260914000000_create_cropasap_sizes.sql`
+into the SQL editor. Until it is applied the account card says "Sync is not set
+up on the server yet" and sizes stay on the device; nothing else changes.
+
+How it behaves: the first sign-in on a device merges what the guest had into
+the account (union by pixels); after that the account's copy is adopted on
+sign-in, every local change pushes, and a lost race pulls, merges and pushes
+again. Signing out puts the guest's own sizes back.

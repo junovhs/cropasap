@@ -22,6 +22,8 @@ export interface AccountController {
   session(): Session | null;
   /** The loaded client, or null until an account matters. */
   client(): Client | null;
+  /** The line under the email on the account card — what sync is doing. */
+  setNote(text: string): void;
 }
 
 export interface AccountOptions {
@@ -74,6 +76,7 @@ export function createAccount(options: AccountOptions = {}): AccountController {
   const email = $('#accountEmail');
   const homeConsent = $<HTMLInputElement>('#homeConsent');
   const signUpConsent = $<HTMLInputElement>('#signUpConsent');
+  const note = $('#accountSync');
 
   let config: SupabaseConfig | null = null;
   try {
@@ -90,7 +93,7 @@ export function createAccount(options: AccountOptions = {}): AccountController {
   let returnFocus: HTMLElement | null = null;
 
   // No service, no button: the app is complete without it.
-  if (!config) return { open() {}, close() {}, isOpen: () => false, session: () => null, client: () => null };
+  if (!config) return { open() {}, close() {}, isOpen: () => false, session: () => null, client: () => null, setNote() {} };
   const service = config;
   trigger.hidden = false;
 
@@ -274,5 +277,6 @@ export function createAccount(options: AccountOptions = {}): AccountController {
     isOpen: () => !root.hidden,
     session: () => session,
     client: () => client,
+    setNote(text) { note.textContent = text; },
   };
 }

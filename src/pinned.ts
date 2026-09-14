@@ -6,6 +6,7 @@
 // rectangle twice under two names is one pin, not two.
 
 import type { PinnedSize } from './domain/types.js';
+import { notifySizesWritten } from './size-store-events.js';
 
 const KEY = 'cropasap.pinned';
 // Written before the rename to CropASAP; read once so pinned sizes survive it.
@@ -46,14 +47,20 @@ function read(): PinnedSize[] {
   }
 }
 
-function write(list: readonly PinnedSize[]): PinnedSize[] {
+function write(list: readonly PinnedSize[], origin: 'local' | 'remote' = 'local'): PinnedSize[] {
   const copy = list.slice(0, MAX_PINS).map((pin) => ({ ...pin }));
   try {
     localStorage.setItem(KEY, JSON.stringify(copy));
   } catch {
     // Private mode: the pins remain available for this session.
   }
+  notifySizesWritten(origin);
   return copy;
+}
+
+/** Replace the whole list — what sync does when the account's copy arrives. */
+export function replacePinned(list: readonly PinnedSize[]): PinnedSize[] {
+  return write(list.filter(isPinnedSize).map((pin) => ({ ...pin, id: pinId(pin.w, pin.h) })), 'remote');
 }
 
 /** Every pinned size, oldest first. Bad or absent storage reads as none. */

@@ -1,6 +1,7 @@
 // User-defined output sizes persisted in localStorage.
 
 import type { SavedSize } from './domain/types.js';
+import { notifySizesWritten } from './size-store-events.js';
 
 const KEY = 'cropasap.saved';
 // Written before the rename to CropASAP; read once so saved sizes survive it.
@@ -36,14 +37,20 @@ function read(): SavedSize[] {
   }
 }
 
-function write(list: readonly SavedSize[]): SavedSize[] {
+function write(list: readonly SavedSize[], origin: 'local' | 'remote' = 'local'): SavedSize[] {
   const copy = list.map((size) => ({ ...size }));
   try {
     localStorage.setItem(KEY, JSON.stringify(copy));
   } catch {
     // Private mode: the size remains available for this session.
   }
+  notifySizesWritten(origin);
   return copy;
+}
+
+/** Replace the whole list — what sync does when the account's copy arrives. */
+export function replaceSaved(list: readonly SavedSize[]): SavedSize[] {
+  return write(list.filter(isSavedSize), 'remote');
 }
 
 export const loadSaved = read;

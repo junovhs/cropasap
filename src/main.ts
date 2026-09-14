@@ -29,6 +29,8 @@ import { requiredElement, requiredElements } from './infrastructure/dom.js';
 import { loadPinned, pinId, removePinned } from './pinned.js';
 import { createHistory } from './history.js';
 import { createAccount } from './account.js';
+import { createSizeSync, type SyncStatus } from './size-sync.js';
+import { onSizesWritten } from './size-store-events.js';
 import type {
   AppState, CropItem, Framing, OutputTarget, PinnedSize, SizeResult,
 } from './domain/types.js';
@@ -1276,7 +1278,27 @@ document.addEventListener('keydown', (event) => {
 });
 
 // The account is optional (DEC-05): a guest page never loads its service.
-const account = createAccount({ announce });
+// Signed in, the sizes you keep travel with you; the card says how that is going.
+const sizeSync = createSizeSync();
+const account = createAccount({ announce, onSession: (session, client) => sizeSync.session(session, client) });
+function syncNote(status: SyncStatus): string {
+  switch (status.kind) {
+    case 'syncing': return 'Syncing your sizes…';
+    case 'synced': return status.count
+      ? `Synced. ${status.count} saved and pinned ${status.count === 1 ? 'size is' : 'sizes are'} kept with this account.`
+      : 'Synced. Sizes you save or pin are kept with this account.';
+    case 'unavailable': return status.reason === 'offline'
+      ? 'Offline. Your sizes stay on this device until you reconnect.'
+      : status.reason === 'not-installed'
+        ? 'Sync is not set up on the server yet. Your sizes stay on this device.'
+        : 'Sync is unavailable right now. Your sizes stay on this device.';
+    default: return 'Your saved and pinned sizes are kept with this account.';
+  }
+}
+sizeSync.onStatus((status) => account.setNote(syncNote(status)));
+// A copy arriving from the account redraws the top bar; the picker rereads
+// storage every time it opens.
+onSizesWritten((origin) => { if (origin === 'remote') renderPins(); });
 
 let dragDepth = 0;
 for (const name of ['dragenter', 'dragleave', 'dragover', 'drop'] as const) {
