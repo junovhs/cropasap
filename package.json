@@ -19,6 +19,7 @@
     "typescript": "^5.8.3"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.116.0",
     "dopedocs": "github:junovhs/dopedocs#5e8fc490ed9f1429143df2877597513d2b2482ba"
   }
 }

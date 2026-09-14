@@ -48,7 +48,22 @@ writeIcon('dist/src/apple-touch-icon.png', 180);
 cpSync('src/fonts', 'dist/src/fonts', { recursive: true });
 
 // Bundle the browser entry so the dopedocs package import resolves in production.
-await build({ entryPoints: ['src/main.ts'], outfile: 'dist/src/main.js', bundle: true, format: 'esm', target: 'es2022' });
+// Splitting keeps the account service (supabase-js) in a chunk that a guest
+// never fetches. The optional SUPABASE_* variables let a deployment point at a
+// different project than the shared one in src/supabase.ts.
+await build({
+  entryPoints: ['src/main.ts'],
+  outdir: 'dist/src',
+  bundle: true,
+  splitting: true,
+  format: 'esm',
+  target: 'es2022',
+  chunkNames: 'chunks/[name]-[hash]',
+  define: {
+    __SUPABASE_URL__: JSON.stringify(process.env.SUPABASE_URL ?? ''),
+    __SUPABASE_PUBLISHABLE_KEY__: JSON.stringify(process.env.SUPABASE_PUBLISHABLE_KEY ?? ''),
+  },
+});
 
 // ---- documentation ---------------------------------------------------------
 // The same content module renders the in-app panel and a real page per section

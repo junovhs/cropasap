@@ -26,9 +26,10 @@ export const FACTS = defineFacts({
   scales: { value: '1×, 2× and 4×', reviewed: '2026-09-10' },
   adjustments: { value: '26 controls in five groups', reviewed: '2026-09-10' },
   persistence: { value: 'saved and pinned sizes only, in this browser', reviewed: '2026-09-10' },
-  dependencies: { value: 'zero runtime dependencies and no third-party requests', reviewed: '2026-09-10' },
+  dependencies: { value: 'no request to anyone until you sign in', reviewed: '2026-09-14' },
   resampler: { value: 'a separable Lanczos-3 filter, run in linear light', reviewed: '2026-09-10' },
   nudge: { value: '8 pixels, or 40 with Shift', reviewed: '2026-09-10' },
+  account: { value: 'optional and free; cropping never needs one', reviewed: '2026-09-14' },
 });
 
 /** The crop mark, self-contained so the static pages draw it without the app's CSS. */
@@ -422,11 +423,35 @@ export const docsContent = defineDocs({
     },
 
     {
+      id: 'account',
+      title: 'Account',
+      question: 'Do I need an account to use CropASAP?',
+      answer:
+        'No. An account is {fact:account}. It keeps your saved and pinned sizes on every device you sign in on. It is the same login as other Strange Systems apps.',
+      keywords: ['account', 'sign in', 'sync sizes', 'mailing list'],
+      blocks: [
+        {
+          kind: 'table',
+          head: ['To', 'Do this'],
+          rows: [
+            ['Create one', 'Click **Sign in** in the top bar, then **Create a free account**. Confirm the email it sends you.'],
+            ['Sign in', 'Click **Sign in**. Your sizes arrive with you.'],
+            ['Reset a password', 'Click **Forgot password?** and follow the emailed link.'],
+            ['Join the mailing list', 'Tick the box when you create the account, or later from **Your account**. It is unticked by default.'],
+            ['Leave the mailing list', 'Untick the box in **Your account**, or use the link in any email.'],
+            ['Sign out', 'Click your name, then **Sign out**.'],
+          ],
+        },
+        { kind: 'p', text: 'The mailing list and the account are separate. Creating an account never subscribes you to anything.' },
+      ],
+    },
+
+    {
       id: 'privacy',
       title: 'Privacy',
       question: 'Does CropASAP upload my images?',
       answer:
-        'No. Images are {fact:upload}. There is no server processing and no analytics. The page makes {fact:dependencies}.',
+        'No. Images are {fact:upload}. There is no server processing and no analytics. The page makes {fact:dependencies}, and an account only ever sends your email, password and saved sizes.',
       keywords: ['privacy', 'no upload', 'local processing'],
       blocks: [
         {
@@ -434,11 +459,11 @@ export const docsContent = defineDocs({
           title: 'What is stored, and where',
           rows: [
             ['Images, crops, adjustments', 'This tab only. Closing or reloading clears them. Export first.'],
-            ['Saved and pinned sizes', 'This browser\'s local storage.'],
-            ['On a server', 'Nothing.'],
+            ['Saved and pinned sizes', 'This browser\'s local storage. With an account, also your account.'],
+            ['On a server', 'Nothing, unless you sign in. Then: your email, password hash, saved sizes and whether you ticked the mailing-list box. Never an image.'],
           ],
         },
-        { kind: 'p', text: 'To check: open the browser\'s network panel. After the page loads, nothing else is requested.' },
+        { kind: 'p', text: 'To check: open the browser\'s network panel. After the page loads, nothing else is requested until you click Sign in.' },
       ],
     },
 
@@ -447,7 +472,7 @@ export const docsContent = defineDocs({
       title: 'How it is built',
       question: 'How does CropASAP work under the hood?',
       answer:
-        'CropASAP is dependency-free TypeScript running in the browser: a gamma-correct Lanczos resampler, a WebGL preview of the adjustment pipeline, and its own PNG and ZIP encoders.',
+        'CropASAP is TypeScript running in the browser with no library behind the image work: a gamma-correct Lanczos resampler, a WebGL preview of the adjustment pipeline, and its own PNG and ZIP encoders.',
       keywords: ['architecture', 'WebGL', 'Lanczos', 'linear light', 'client-side image processing'],
       blocks: [
         {
@@ -459,7 +484,7 @@ export const docsContent = defineDocs({
             ['Adjustments', 'Own WebGL 2 preview, JavaScript export'],
             ['PNG', 'Own writer, raced against the browser\'s'],
             ['ZIP', 'Own writer'],
-            ['Runtime dependencies', 'None'],
+            ['Runtime dependencies', 'None for cropping. The account service loads only after Sign in.'],
             ['Hosting', 'Static files'],
           ],
         },
@@ -517,10 +542,10 @@ export const docsContent = defineDocs({
           title: 'No dependencies',
           question: 'What does CropASAP depend on?',
           answer:
-            'At runtime, nothing. CropASAP makes {fact:dependencies}. Fonts are bundled, encoders are in-house, and the documentation is rendered from typed data.',
+            'For cropping, nothing. CropASAP makes {fact:dependencies}. Fonts are bundled, encoders are in-house, and the documentation is rendered from typed data. The optional account talks to Supabase, and that code is only downloaded when you click Sign in.',
           keywords: ['no dependencies', 'vanilla TypeScript', 'privacy by architecture'],
           blocks: [
-            { kind: 'p', text: 'Every third-party script is another party with access to the page. Zero is the only number that makes the privacy claim checkable.' },
+            { kind: 'p', text: 'Every third-party script is another party with access to the page. Zero is the only number that makes the privacy claim checkable, so the account client is kept out of the page until you ask for it.' },
           ],
         },
       ],

@@ -28,6 +28,7 @@ import {
 import { requiredElement, requiredElements } from './infrastructure/dom.js';
 import { loadPinned, pinId, removePinned } from './pinned.js';
 import { createHistory } from './history.js';
+import { createAccount } from './account.js';
 import type {
   AppState, CropItem, Framing, OutputTarget, PinnedSize, SizeResult,
 } from './domain/types.js';
@@ -1274,6 +1275,9 @@ document.addEventListener('keydown', (event) => {
   if (docsPanel.isOpen) event.stopImmediatePropagation();
 });
 
+// The account is optional (DEC-05): a guest page never loads its service.
+const account = createAccount({ announce });
+
 let dragDepth = 0;
 for (const name of ['dragenter', 'dragleave', 'dragover', 'drop'] as const) {
   document.addEventListener(name, (event) => {
@@ -1297,7 +1301,7 @@ for (const name of ['dragenter', 'dragleave', 'dragover', 'drop'] as const) {
 // Ctrl/Cmd+V arrives here as a paste event, wherever the focus happens to be —
 // so a clipboard image takes exactly the same road as a dropped one.
 document.addEventListener('paste', (e) => {
-  if (docsPanel.isOpen) return;
+  if (docsPanel.isOpen || account.isOpen()) return;
   const files = [...(e.clipboardData?.files || [])].filter((f) => f.type.startsWith('image/'));
   if (!files.length) return;
   e.preventDefault();
