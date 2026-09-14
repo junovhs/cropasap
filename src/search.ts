@@ -1,7 +1,7 @@
 // Size matching and ranking.
 
 import { PRESETS, RATIO_SIZES, HOT } from './presets.js';
-import type { Dimensions, Preset, SavedSize, SizeResult, SizeResultKind } from './domain/types.js';
+import type { Dimensions, PinnedSize, Preset, SavedSize, SizeResult, SizeResultKind } from './domain/types.js';
 
 const NOISE = new Set<string>([
   'image', 'images', 'img', 'size', 'sizes', 'dimension', 'dimensions', 'pixel',
@@ -182,25 +182,37 @@ export function wholeImageInside(image: Dimensions, bound: Dimensions): Dimensio
   };
 }
 
+const pinRow = (pin: PinnedSize): SizeResult =>
+  row('preset', pin.name, 'Pinned', pin.w, pin.h, { id: `pin:${pin.id}` });
+
 export function search(
   raw: string,
   recents: readonly string[] = [],
   saved: readonly SavedSize[] = [],
   image: Dimensions | null = null,
+  pins: readonly PinnedSize[] = [],
 ): SizeResult[] {
   const query = norm(raw || '');
 
   if (!query) {
-    const savedRows = saved.map((size) => ({ ...savedRow(size), section: 'Saved' }));
+    // Pins lead: they are the sizes this person reaches for, and on a phone,
+    // where the top bar has no room for chips, this list is where they live.
+    // A size that is pinned is not repeated further down under another name.
+    const pinRows = pins.map((pin) => ({ ...pinRow(pin), section: 'Pinned' }));
+    const pinned = new Set(pins.map((pin) => `${pin.w}x${pin.h}`));
+    const unpinned = (result: SizeResult): boolean => !pinned.has(`${result.w}x${result.h}`);
+    const savedRows = saved.map((size) => ({ ...savedRow(size), section: 'Saved' })).filter(unpinned);
     const recentRows = recents
       .map((id) => PRESETS.find((preset) => preset.id === id))
       .filter((preset): preset is Preset => Boolean(preset))
-      .map((preset) => ({ ...presetRow(preset), section: 'Recent' }));
+      .map((preset) => ({ ...presetRow(preset), section: 'Recent' }))
+      .filter(unpinned);
     const seen = new Set(recentRows.map((result) => result.id));
     const hotRows = HOT
       .filter((preset) => !seen.has(preset.id))
-      .map((preset) => ({ ...presetRow(preset), section: 'Popular' }));
-    return [...savedRows, ...recentRows, ...hotRows];
+      .map((preset) => ({ ...presetRow(preset), section: 'Popular' }))
+      .filter(unpinned);
+    return [...pinRows, ...savedRows, ...recentRows, ...hotRows];
   }
 
   const output: SizeResult[] = [];

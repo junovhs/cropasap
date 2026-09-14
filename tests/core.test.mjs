@@ -69,6 +69,17 @@ test('size search accepts semantic names and exact dimensions', () => {
   assert.deepEqual(wholeImageInside({ w: 2000, h: 1000 }, { w: 800, h: 800 }), { w: 800, h: 400 });
 });
 
+test('with nothing typed, pinned sizes lead the list and are not repeated below', () => {
+  const pins = [{ id: '1640x624', name: 'Page cover', w: 1640, h: 624 }, { id: '300x400', name: 'Badge', w: 300, h: 400 }];
+  const saved = [{ id: 's1', name: 'Badge copy', w: 300, h: 400 }, { id: 's2', name: 'Hero', w: 2400, h: 900 }];
+  const rows = search('', ['fb-cover'], saved, null, pins);
+  assert.deepEqual(rows.slice(0, 2).map((row) => [row.section, row.name]), [['Pinned', 'Page cover'], ['Pinned', 'Badge']]);
+  assert.equal(rows.filter((row) => row.w === 300 && row.h === 400).length, 1);
+  assert.equal(rows.filter((row) => row.w === 1640 && row.h === 624).length, 1);
+  assert.ok(rows.some((row) => row.section === 'Saved' && row.name === 'Hero'));
+  assert.equal(search('', [], saved, null, []).some((row) => row.section === 'Pinned'), false);
+});
+
 test('framing commands are immutable and explicit', () => {
   const source = fakeItem();
   const accepted = acceptFrame(source);

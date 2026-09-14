@@ -244,7 +244,7 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
       return;
     }
 
-    rows = search(input.value, recents, saved, template);
+    rows = search(input.value, recents, saved, template, pins);
     if (template && !input.value.trim()) {
       const templateResult: SizeResult = {
         kind: 'template',
