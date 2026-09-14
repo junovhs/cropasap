@@ -51,7 +51,7 @@ export const docsContent = defineDocs({
     // Vercel environment in scripts/build-static.mjs.
     url: 'https://cropasap.vercel.app',
     legalName: 'Strange Systems',
-    tagline: 'Crop, resize and convert images to any size, in the browser, in seconds.',
+    tagline: 'The right crop, in seconds. Drop an image, name its destination, and download.',
     notToBeConfusedWith: [],
     contactEmail: 'junovhs@gmail.com',
   },
@@ -68,9 +68,9 @@ export const docsContent = defineDocs({
 
   title: 'CropASAP',
   lead:
-    'Opening Photoshop to crop one image is a waste of your time. CropASAP: drop the image, ' +
-    'type where it is going, export. {fact:price}. ' +
-    'If you are reading this it should be because you want to know more, not because you got stuck.',
+    'The right crop, in seconds. Drop an image, type where it is going — a Facebook cover, ' +
+    'an Instagram story, or your own exact size — frame it, and download. {fact:price}. ' +
+    'Your images are {fact:upload}. Have more to crop? Batch handles a whole folder.',
 
   sections: [
     {
