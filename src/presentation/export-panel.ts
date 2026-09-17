@@ -9,6 +9,7 @@ import {
 import { FREEFORM_LABEL, exportItems } from '../application/freeform.js';
 import { requiredElement, requiredElements } from '../infrastructure/dom.js';
 import { alphaOf } from '../infrastructure/alpha.js';
+import { icon } from '../icons.js';
 import type {
   AppState,
   ExportFormat,
@@ -68,7 +69,12 @@ export function createExportPanel({
   const widthInput = $<HTMLInputElement>('#exportWidth');
   const heightInput = $<HTMLInputElement>('#exportHeight');
   const manualSizeWarning = $<HTMLElement>('#manualSizeWarning');
+  const sizeLock = $<HTMLButtonElement>('#sizeLock');
   let overriddenPreset: string | null = null;
+  // Off by default: a custom size is a size you set exactly, so a typed width
+  // is that width and nothing else moves. Lock it and the other side follows
+  // the shape you had, which is what a preset scaled up or down wants.
+  let locked = false;
   let manualRatio: number | null = null;
   let lastTargetLabel: string | null = null;
 
@@ -189,14 +195,18 @@ export function createExportPanel({
     }
     const target = getState().target;
     if (target.label !== 'Custom size') {
-      if (target.label !== FREEFORM_LABEL) overriddenPreset = target.label;
+      // The warning names a preset that is no longer in force. The image's own
+      // size is not one, and neither is Freeform.
+      if (target.label !== FREEFORM_LABEL && target.label !== 'This image') overriddenPreset = target.label;
       manualRatio = target.w / target.h;
     }
     const ratio = manualRatio ?? target.w / target.h;
     manualRatio = ratio;
-    const out = axis === 'width'
-      ? { ...target, w: pixels, h: Math.max(1, Math.round(pixels / ratio)) }
-      : { ...target, w: Math.max(1, Math.round(pixels * ratio)), h: pixels };
+    const out = !locked
+      ? (axis === 'width' ? { ...target, w: pixels } : { ...target, h: pixels })
+      : axis === 'width'
+        ? { ...target, w: pixels, h: Math.max(1, Math.round(pixels / ratio)) }
+        : { ...target, w: Math.max(1, Math.round(pixels * ratio)), h: pixels };
     if (onSizeChange) {
       options.scale = 1;
       onSizeChange(out.w, out.h);
@@ -221,6 +231,19 @@ export function createExportPanel({
       if (scale === 1 || scale === 2 || scale === 4) setScale(scale);
     });
   }
+
+  function setLocked(on: boolean): void {
+    locked = on;
+    // Locking keeps the shape on screen right now, not the preset's from
+    // before any typing — that is the one the person can see.
+    const { target } = getState();
+    manualRatio = on ? target.w / target.h : null;
+    sizeLock.setAttribute('aria-pressed', String(on));
+    sizeLock.title = on ? 'Shape locked — unlock to set width and height separately' : 'Lock the shape so the other side follows';
+    sizeLock.replaceChildren(icon(on ? 'link' : 'unlink'));
+    announce(on ? 'Shape locked' : 'Shape unlocked');
+  }
+  sizeLock.addEventListener('click', () => setLocked(!locked));
 
   widthInput.addEventListener('input', () => setPixelDimension('width', widthInput.value));
   heightInput.addEventListener('input', () => setPixelDimension('height', heightInput.value));

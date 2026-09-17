@@ -2235,8 +2235,8 @@ button.picker-ratio:hover:not(:disabled) { border-color: var(--accent); backgrou
   *, *::before, *::after { transition-duration: .001ms !important; animation-duration: .001ms !important; }
 }
 
-/* A typed width or height is another quick-export multiplier. The paired value
-   stays visible so the preserved aspect ratio is obvious before downloading. */
+/* A typed width or height is the output size, exactly. The lock between them
+   is off until asked: locked, the other side follows the shape. */
 .manual-size-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
@@ -2269,7 +2269,14 @@ button.picker-ratio:hover:not(:disabled) { border-color: var(--accent); backgrou
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
-.manual-size-lock { padding-bottom: 8px; color: var(--ink-4); }
+.manual-size-lock {
+  align-self: end;
+  width: 30px; min-height: 34px;
+  padding: 0;
+  color: var(--ink-4);
+}
+.manual-size-lock .icon { width: 15px; height: 15px; }
+.manual-size-lock[aria-pressed="true"] { color: var(--accent); background: var(--accent-soft); }
 .manual-size-warning {
   margin: 6px 0 0;
   color: var(--danger);
@@ -2350,7 +2357,8 @@ body.dragging .empty-inner { border-color: var(--accent); background: var(--acce
 .manual-size-row label { gap: 6px; font-size: 15px; }
 .manual-size-row label span { font: 14px var(--font-ui); }
 .manual-size-row input { height: 46px; padding: 0 12px; border-radius: 6px; font: 18px var(--font-ui); }
-.manual-size-lock { padding-bottom: 9px; color: var(--accent); font-size: 20px; }
+.manual-size-lock { min-height: 46px; width: 36px; }
+.manual-size-lock .icon { width: 17px; height: 17px; }
 .scale-row { grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 20px; margin-top: 24px; }
 .field-label { color: var(--ink); font-size: 16px; }
 .panel .segmented { gap: 8px; padding: 0; border: 0; border-radius: 0; background: transparent; }

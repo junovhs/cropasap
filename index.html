@@ -364,9 +364,9 @@
       <p id="sizeNote" class="note" hidden>Search by name, pixels or shape.</p>
 
       <div class="manual-size-row" aria-label="Export dimensions">
-        <label>Max width <span><input id="exportWidth" type="number" inputmode="numeric" min="1" step="1"> px</span></label>
-        <span class="manual-size-lock" aria-hidden="true">×</span>
-        <label>Max height <span><input id="exportHeight" type="number" inputmode="numeric" min="1" step="1"> px</span></label>
+        <label>Width <span><input id="exportWidth" type="number" inputmode="numeric" min="1" step="1"> px</span></label>
+        <button id="sizeLock" class="ghost manual-size-lock" type="button" aria-pressed="false" aria-label="Lock the shape" title="Lock the shape so the other side follows"><span class="icon" data-icon="unlink"></span></button>
+        <label>Height <span><input id="exportHeight" type="number" inputmode="numeric" min="1" step="1"> px</span></label>
       </div>
       <p id="manualSizeWarning" class="manual-size-warning" role="status" hidden></p>
       <div class="scale-row">

@@ -349,7 +349,7 @@ export const docsContent = defineDocs({
           head: ['Option', 'What it does'],
           rows: [
             ['1× · 2× · 4×', 'Multiplies the output size for high-density screens. `1080×1080` at 2× writes `2160×2160`.'],
-            ['Max width · Max height', 'Type a pixel limit. The other side follows, so the shape never changes.'],
+            ['Width · Height', 'Type the exact pixels you want; only that side changes. Press the lock between them and the other side follows, so the shape stays.'],
             ['Quality', 'JPEG and WebP only. Higher is larger.'],
             ['Quality readout', 'Warns if the crop has fewer pixels than the output needs.'],
           ],
