@@ -73,6 +73,8 @@ mkdirSync('dist/docs', { recursive: true });
 cpSync('node_modules/dopedocs/styles/dopedocs.css', 'dist/docs/dopedocs.css');
 cpSync('src/docs-theme.css', 'dist/docs/docs-theme.css');
 cpSync('src/docs-narrow.css', 'dist/docs/docs-narrow.css');
+// The manual's screen grabs, taken from the built app and checked in as WebP.
+cpSync('src/docs-shots', 'dist/docs/shots', { recursive: true });
 
 // The content module is TypeScript that imports a package; bundle it for Node
 // once, import it, and throw the bundle away.

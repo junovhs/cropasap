@@ -22,7 +22,7 @@ export const FACTS = defineFacts({
   price: { value: 'Free', reviewed: '2026-09-10' },
   upload: { value: 'never uploaded - every pixel stays in this browser tab', reviewed: '2026-09-10' },
   formats: { value: 'PNG, JPEG and WebP', reviewed: '2026-09-10' },
-  presets: { value: 'more than 400 named sizes across 60-odd platforms and print formats', reviewed: '2026-09-10' },
+  presets: { value: 'more than 400 named sizes across 60-odd platforms and print formats', reviewed: '2026-09-16' },
   scales: { value: '1×, 2× and 4×', reviewed: '2026-09-10' },
   adjustments: { value: '26 controls in five groups', reviewed: '2026-09-10' },
   persistence: { value: 'saved and pinned sizes only, in this browser', reviewed: '2026-09-10' },
@@ -44,6 +44,21 @@ const STRANGE_SYSTEMS = `<svg viewBox="0 0 505 474" xmlns="http://www.w3.org/200
   <path d="M216.914,153.657 L288.081,122.522 L288.081,319.256 L216.914,350.391 Z" />
   <path d="M505,61.503 L505,473.381 L288.081,473.381 L288.081,412.216 L442.058,412.216 L442.058,122.666 L288.081,122.666 L288.081,61.503 Z" />
 </svg>`;
+
+/**
+ * A screen grab of the built app. The files are WebP under src/docs-shots,
+ * taken by a Playwright script against the real page (desktop at 2×, phone at
+ * 3×) with drawn scenery in place of anyone's photograph, and copied to
+ * /docs/shots by the static build. Width and height are the file's, so the
+ * page keeps its place while they load.
+ */
+const shot = (
+  name: string,
+  alt: string,
+  width: number,
+  height: number,
+  caption?: string,
+) => ({ kind: 'image' as const, src: `/docs/shots/${name}.webp`, alt, width, height, ...(caption ? { caption } : {}) });
 
 export const docsContent = defineDocs({
   entity: {
@@ -86,6 +101,8 @@ export const docsContent = defineDocs({
           kind: 'p',
           text: 'You pick a size. The frame takes that shape. You move the image under the frame. What is inside the frame is your file, at exactly that size.',
         },
+        shot('overview', 'CropASAP with a landscape picture under a portrait frame; the output size, scale, format and Export button on the right', 1600, 1225,
+          'The whole job on one screen: the picture under the frame, the size on the right.'),
         {
           kind: 'steps',
           items: [
@@ -109,6 +126,18 @@ export const docsContent = defineDocs({
           kind: 'callout',
           text: 'Drop several images at once and Batch opens by itself.',
         },
+        shot('empty', 'The empty page: "The right crop. Right now." with a Choose image button', 1600, 1225,
+          'Before an image: drop one anywhere, paste, or click Choose image.'),
+        {
+          kind: 'gallery',
+          columns: 3,
+          label: 'CropASAP on a phone',
+          images: [
+            { src: '/docs/shots/phone-main.webp', alt: 'The phone view: the picture under a portrait frame, the size chip in the top bar, and Crop, Adjust, Convert, Batch and Export along the bottom', width: 900, height: 1948, caption: 'The same job on a phone. The size chip is at the top.' },
+            { src: '/docs/shots/phone-picker.webp', alt: 'The size picker filling the phone screen, with Cancel and Apply along the bottom', width: 900, height: 1948, caption: 'The picker fills the screen.' },
+            { src: '/docs/shots/phone-sheet.webp', alt: 'The Export sheet on a phone: Width and Height, Scale, Format, File options and Export', width: 900, height: 1948, caption: 'Export opens as a sheet.' },
+          ],
+        },
       ],
     },
 
@@ -117,15 +146,31 @@ export const docsContent = defineDocs({
       title: 'Output sizes',
       question: 'How do I find the right image size for a platform in CropASAP?',
       answer:
-        'Click the size chip and type the destination — `ig story`, `youtube thumbnail`, `1200 by 630`, `4:5`. ' +
-        'CropASAP matches it against {fact:presets}. Typos and abbreviations work. ' +
-        'Pin a size you typed and it is saved for next time.',
+        'Click the size chip. It offers the image\'s own size, a custom size, six preset categories and the four common formats. ' +
+        'Or type the destination — `ig story`, `1200 by 630`, `4:5` — and CropASAP matches it against {fact:presets}. Typos work. ' +
+        'Pin a size and it sits in the top bar.',
       keywords: ['image sizes', 'social media sizes', 'presets', 'aspect ratio', 'og image size', 'instagram story size'],
       blocks: [
         {
           kind: 'p',
-          text: 'Open the size picker: click the size chip in the top bar, or press Ctrl/⌘ K. Before you type it offers **Match this image**, **Custom size** (exact width and height, with a shape lock), six doors into the presets — Social, Video, Ads, Print, Documents, Web — the four common formats, and your pinned, saved and recent sizes. Type and it becomes a search.',
+          text: 'Open the size picker: click the size chip in the top bar, or press Ctrl/⌘ K.',
         },
+        shot('picker-home', 'The Choose a size dialog: a search box, Match this image and Custom size cards, six Browse presets buttons, and four Common formats tiles', 1600, 1225,
+          'The picker before you type.'),
+        {
+          kind: 'table',
+          head: ['On the home', 'What it does'],
+          rows: [
+            ['**Match this image**', 'The picture\'s own pixel size. Nothing is cut.'],
+            ['**Custom size**', 'Type a width and a height. See below.'],
+            ['**Browse presets**', 'Social, Video, Ads, Print, Documents, Web. Each lists its sizes platform by platform.'],
+            ['**Common formats**', 'Square 1:1, Portrait 4:5, Landscape 16:9, Vertical 9:16.'],
+            ['**Pinned · Saved · Recent**', 'Your own sizes, under the formats.'],
+          ],
+        },
+        shot('picker-browse', 'The Social category open: Instagram sizes listed first, then Facebook', 1600, 1225,
+          'Browse presets → Social. Press Esc to go back to the home.'),
+        { kind: 'p', text: 'Type anything and the home becomes a search:' },
         {
           kind: 'table',
           head: ['Type', 'You get'],
@@ -135,8 +180,14 @@ export const docsContent = defineDocs({
             ['`16:9` · `4:5` · `square` · `portrait`', 'Every size with that shape.'],
             ['`a4` · `letter` · `business card`', 'Print sizes at print resolution.'],
             ['`instagrm stroy`', 'Instagram story. Typos are fine.'],
+            ['`700`', 'A 700 × 700 square first, then every size with 700 in it.'],
           ],
         },
+        shot('picker-search', 'Typing "ig story" lists Story, Highlight cover and other 9:16 sizes', 1600, 1225,
+          'Search as you type. Enter takes the highlighted row.'),
+        { kind: 'p', text: '**Custom size.** Click the card, type a width and a height, press Enter. Each box sets its own side. Press the lock between them and the other side follows, so the shape stays. Esc goes back.' },
+        shot('picker-custom', 'The Custom size form: Width 1600, a lock button, Height 600, and "1600 × 600 — 8:3. Press Enter to apply."', 1600, 1225,
+          'Custom size. The lock is off: 1600 wide, 600 tall, exactly.'),
         {
           kind: 'list',
           items: [
@@ -146,6 +197,8 @@ export const docsContent = defineDocs({
             '**Change your mind.** Pick another size. The frame changes shape; the image stays where you put it.',
           ],
         },
+        shot('topbar-pins', 'The top bar with Square and Portrait pinned as chips beside the filename', 1600, 114,
+          'Pinned sizes are chips in the top bar. Click one to use it; the × unpins it.'),
         {
           kind: 'details',
           summary: 'How matching works',
@@ -167,6 +220,8 @@ export const docsContent = defineDocs({
         'Drag to move. Scroll to zoom. Arrow keys nudge by {fact:nudge}. Press 0 to fill the frame. A quality readout warns when the crop has fewer pixels than the output needs.',
       keywords: ['move crop', 'zoom', 'nudge', 'fill frame', 'quality readout'],
       blocks: [
+        shot('framing', 'A portrait frame over a landscape picture at 121% zoom; the parts outside the frame are dimmed', 1380, 1766,
+          'What is inside the frame is the file. Outside is dimmed, not gone — drag to bring it in.'),
         {
           kind: 'table',
           head: ['To', 'Do this'],
@@ -202,6 +257,8 @@ export const docsContent = defineDocs({
                 ['**Enlarged**', 'The output is small — a thumbnail or favicon.'],
               ],
             },
+            shot('frame-views', 'The Freeform, Small and 1:1 buttons above the stage', 404, 112,
+              'The view switch. 1:1 is true size; Small fits the frame on screen.'),
             { kind: 'p', text: 'Press `F` to cycle. Views that would look identical are hidden. Switching views never changes the export.' },
           ],
         },
@@ -213,6 +270,8 @@ export const docsContent = defineDocs({
             'Yes. Turn on Freeform and drag any edge or corner. The crop rectangle becomes the output size. Turn Freeform off and your preset comes back.',
           keywords: ['freeform crop', 'free aspect ratio'],
           blocks: [
+            shot('freeform', 'Freeform on: the frame has handles on every edge and corner and the chip reads Output 900 × 1600', 1380, 1766,
+              'Freeform. Drag any handle; the chip shows the pixels you would get.'),
             {
               kind: 'list',
               items: [
@@ -237,6 +296,8 @@ export const docsContent = defineDocs({
       keywords: ['exposure', 'contrast', 'saturation', 'film grain', 'halation', 'bloom', 'vignette'],
       blocks: [
         { kind: 'p', text: 'Click **Adjust** in the rail. Drag a slider. The preview updates live.' },
+        shot('adjust', 'The Adjust panel in the rail with the Light group open: Highlights at +35 and Shadows at −20, the picture updated behind it', 1600, 1225,
+          'Adjust. Groups open one at a time; a changed value shows beside its slider.'),
         {
           kind: 'table',
           head: ['Group', 'Controls'],
@@ -277,6 +338,10 @@ export const docsContent = defineDocs({
             { title: 'Export', text: 'One ZIP with every image.' },
           ],
         },
+        shot('batch-coach', 'Three images dropped: a card titled "3 images — one crop at a time" asks for the output size before anything else', 1600, 1225,
+          'Drop a stack and Batch asks for the one size they will share.'),
+        shot('batch', 'Batch with the first of three images framed square; a Finalize this crop button on the picture and a filmstrip of the queue below', 1600, 1225,
+          'Frame each image, press Enter, and the next one comes up. Export writes the lot as one ZIP.'),
         {
           kind: 'table',
           head: ['Question', 'Answer'],
@@ -288,6 +353,8 @@ export const docsContent = defineDocs({
             ['How do I move between images?', '`[` and `]`, or `J` and `K`, or click the filmstrip.'],
           ],
         },
+        shot('batch-strip', 'The filmstrip: three thumbnails numbered 1 to 3, the first ticked, with "1 / 3 framed" and a Frame the rest button', 1396, 270,
+          'The filmstrip counts what is framed. Frame the rest accepts everything left.'),
       ],
     },
 
@@ -308,6 +375,8 @@ export const docsContent = defineDocs({
             { title: 'Convert', text: 'One file downloads. Several files download as one ZIP.' },
           ],
         },
+        shot('convert-full', 'Convert: WebP selected, the quality slider on Auto and Fit under set to 200 KB', 1600, 1225,
+          'Convert. Fit under 200 KB picks the best quality that lands under the limit.'),
         {
           kind: 'table',
           head: ['Fit under', 'What happens'],
@@ -335,6 +404,8 @@ export const docsContent = defineDocs({
         'CropASAP exports {fact:formats} at {fact:scales} the chosen size. PNG and WebP keep transparency. JPEG does not, and the panel warns you first.',
       keywords: ['export', 'download', '2x', 'retina', 'transparency', 'PNG vs JPEG vs WebP'],
       blocks: [
+        shot('export-panel', 'The Export panel: Output size 1280 × 640, Width and Height boxes with a lock between them, Scale 1× 2× 4×, Format PNG JPEG WebP, File options and the Export button', 692, 1766,
+          'The Export panel. Everything about the file, top to bottom.'),
         {
           kind: 'table',
           head: ['Format', 'Use it for'],
@@ -388,6 +459,8 @@ export const docsContent = defineDocs({
               ],
             },
             { kind: 'p', text: 'Two files that would get the same name are numbered so nothing is overwritten in the ZIP.' },
+            shot('naming', 'File options with Rename files open: the template {name}-{label}-{date} and the preview harbour-evening-GitHub-social-preview-2026…', 692, 1766,
+              'Rename files. The preview above the box shows the name you will get.'),
           ],
         },
       ],
@@ -443,6 +516,15 @@ export const docsContent = defineDocs({
           ],
         },
         { kind: 'p', text: 'The mailing list and the account are separate. Creating an account never subscribes you to anything.' },
+        {
+          kind: 'gallery',
+          columns: 2,
+          label: 'The sign-in and create-account forms',
+          images: [
+            { src: '/docs/shots/account-signin.webp', alt: 'The Sign in form: email, password, Forgot password? and Create a free account', width: 896, height: 826, caption: 'Sign in.' },
+            { src: '/docs/shots/account-create.webp', alt: 'The Create a free account form with the mailing-list box unticked', width: 896, height: 966, caption: 'Create a free account. The mailing-list box starts unticked.' },
+          ],
+        },
       ],
     },
 
