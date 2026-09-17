@@ -48,7 +48,7 @@ test('consent is recorded with its wording, time and source; opting out clears t
   });
   assert.equal(consentRecord(false, at).marketing_opt_in_at, null);
   assert.equal(CONSENT_SOURCE, 'cropasap');
-  assert.match(CONSENT_TEXT, /Unsubscribe any time/);
+  assert.match(CONSENT_TEXT, /Get updates on new Strange Systems apps/);
 });
 
 test('an opt-in is read from metadata written by any sibling app', () => {

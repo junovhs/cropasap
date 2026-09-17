@@ -10,7 +10,7 @@
 //   from auth.users
 //   where raw_user_meta_data->>'marketing_opt_in' = 'true';
 
-export const CONSENT_TEXT = 'Email me about new Strange Systems apps and occasional offers. Unsubscribe any time.';
+export const CONSENT_TEXT = 'Get updates on new Strange Systems apps & occasional offers.';
 
 export const CONSENT_SOURCE = 'cropasap';
 
