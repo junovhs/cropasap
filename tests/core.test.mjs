@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 
 import { acceptFrame, targetKey, useWholeImage } from '../dist/src/application/framing.js';
 import { expandName, unique } from '../dist/src/export.js';
-import { ratioLabel, search, wholeImageInside } from '../dist/src/search.js';
+import { browse, formatRows, ratioLabel, search, wholeImageInside } from '../dist/src/search.js';
+import { CATEGORIES, presetsIn } from '../dist/src/presets.js';
 import { createAppStore } from '../dist/src/state.js';
 import {
   encodedImageDimensions,
@@ -196,4 +197,21 @@ test('ZIP output names never collide with original or generated suffixes', () =>
   const tricky = ['a.png', ...Array.from({ length: 80 }, (_, i) => `a-${i + 2}.png`), ...Array(100).fill('a.png'), 'A-2.PNG'];
   const output = unique(tricky);
   assert.equal(new Set(output.map((name) => name.toLowerCase())).size, tricky.length);
+});
+
+test('the picker home: a bare number leads with its square, doors list platforms in their own order', () => {
+  assert.deepEqual([search('700')[0]?.w, search('700')[0]?.h, search('700')[0]?.section], [700, 700, 'Exact match']);
+  assert.ok(search('700').some((row) => row.kind === 'preset'));
+  const social = CATEGORIES.find((category) => category.id === 'social');
+  const rows = browse(social);
+  assert.equal(rows[0]?.section, 'Instagram');
+  assert.ok(rows.some((row) => row.section === 'Facebook'));
+  assert.equal(new Set(rows.map((row) => row.id)).size, rows.length);
+  for (const category of CATEGORIES) assert.ok(presetsIn(category).length > 0, category.id);
+  assert.deepEqual(formatRows().map((row) => [row.name, row.kind, `${row.w}x${row.h}`]), [
+    ['Square', 'format', '1080x1080'], ['Portrait', 'format', '1080x1350'],
+    ['Landscape', 'format', '1920x1080'], ['Vertical', 'format', '1080x1920'],
+  ]);
+  // The home draws the popular list no more; the empty query is the person's own sizes.
+  assert.equal(search('', [], [], null, []).length, 0);
 });

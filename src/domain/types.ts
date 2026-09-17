@@ -74,7 +74,12 @@ export interface Preset extends Dimensions {
   readonly keywords: readonly string[];
 }
 
-export type SizeResultKind = 'preset' | 'saved' | 'custom' | 'ratio' | 'template' | 'whole';
+/**
+ * Where a size came from. `format` is one of the four common shapes on the
+ * picker's home: named like a preset, but not in the catalogue, so it is never
+ * a recent and pinning it needs no name.
+ */
+export type SizeResultKind = 'preset' | 'saved' | 'custom' | 'ratio' | 'template' | 'whole' | 'format';
 
 export interface SizeResult extends Dimensions {
   readonly kind: SizeResultKind;

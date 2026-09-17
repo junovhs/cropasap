@@ -1138,6 +1138,10 @@ const sizePicker = createSizePicker({
   // The image on the stage is also an answer to the size question — the whole
   // "use this as the template" move, now reachable whenever it is wanted rather
   // than only in the half-second the file was arriving.
+  getCurrent: () => {
+    const { target } = store.get();
+    return { w: target.w, h: target.h };
+  },
   getTemplate: () => {
     const item = activeItem();
     if (!item) return null;

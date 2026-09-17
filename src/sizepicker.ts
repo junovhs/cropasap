@@ -1,6 +1,13 @@
 // The size palette: one text box that always lands on the right size.
+//
+// With nothing typed it is a home rather than a list: the picture's own size
+// and a custom one as two cards, six doors into the catalogue, the four shapes
+// almost everything is, then the sizes this person pinned, saved and used.
+// Typing turns it back into the search it always was.
 
-import { search, ratioLabel } from './search.js';
+import { search, ratioLabel, formatRows, browse } from './search.js';
+import { CATEGORIES } from './presets.js';
+import type { Category } from './presets.js';
 import { loadSaved, addSaved, renameSaved, removeSaved } from './saved.js';
 import { loadPinned, isPinned, togglePinned } from './pinned.js';
 import { icon } from './icons.js';
@@ -20,6 +27,8 @@ export interface SizePickerOptions {
   readonly list: HTMLElement;
   readonly trigger: HTMLButtonElement;
   readonly getTemplate?: () => Dimensions | null;
+  /** The output size in force now; the custom form opens on it. */
+  readonly getCurrent?: () => Dimensions | null;
   readonly onPick: (result: SizeResult) => void;
   /**
    * Runs before the list appears, whatever opened it. Asking for a size is
@@ -118,8 +127,16 @@ function rowAction(
 }
 
 export function createSizePicker(options: SizePickerOptions): SizePickerController {
-  const { root, input, list, trigger, getTemplate, onPick, onPinsChange, onBeforeOpen } = options;
+  const { root, input, list, trigger, getTemplate, getCurrent, onPick, onPinsChange, onBeforeOpen } = options;
+  const title = root.querySelector<HTMLElement>('#pickerTitle');
+  const lead = root.querySelector<HTMLElement>('#pickerLead');
+  const searchBox = root.querySelector<HTMLElement>('#pickerSearch');
+  const applyButton = root.querySelector<HTMLButtonElement>('#pickerApply');
   let rows: SizeResult[] = [];
+  // Which door on the home is open, if any. Typing closes it.
+  let category: Category | null = null;
+  // The custom form: two numbers and whether the second follows the first.
+  let custom: { w: number; h: number; locked: boolean } | null = null;
   let cursor = 0;
   let recents = loadRecents();
   let saved: SavedSize[] = loadSaved();
@@ -237,25 +254,269 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
     container.append(ratio);
   }
 
+  // ---- the home ------------------------------------------------------------
+
+  function card(name: string, detail: string, mark: Node, onRun: () => void): HTMLButtonElement {
+    const el = document.createElement('button');
+    el.type = 'button';
+    el.className = 'picker-card';
+    const glyph = document.createElement('span');
+    glyph.className = 'picker-card-mark';
+    glyph.append(mark);
+    const text = document.createElement('span');
+    text.className = 'picker-card-text';
+    const strong = document.createElement('strong');
+    strong.textContent = name;
+    const span = document.createElement('span');
+    span.textContent = detail;
+    text.append(strong, span);
+    el.append(glyph, text);
+    el.addEventListener('click', onRun);
+    return el;
+  }
+
+  function heading(text: string): HTMLElement {
+    const el = document.createElement('h3');
+    el.className = 'picker-heading';
+    el.textContent = text;
+    return el;
+  }
+
+  function renderCards(): void {
+    const cards = document.createElement('div');
+    cards.className = 'picker-cards';
+    if (template) {
+      const { w, h } = template;
+      cards.append(card('Match this image', `${w} × ${h}`, icon('image'), () => {
+        close();
+        onPick({ kind: 'template', key: 'template', name: 'Match this image', detail: 'Its own pixel size', w, h });
+      }));
+    }
+    cards.append(card('Custom size', 'Set exact dimensions', icon('maximize'), openCustom));
+    list.append(cards);
+  }
+
+  function renderChips(): void {
+    list.append(heading('Browse presets'));
+    const chips = document.createElement('div');
+    chips.className = 'picker-chips';
+    for (const entry of CATEGORIES) {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = `picker-chip is-${entry.id}`;
+      chip.setAttribute('aria-pressed', String(category?.id === entry.id));
+      chip.append(icon(entry.icon), document.createTextNode(entry.label));
+      chip.addEventListener('click', () => {
+        category = category?.id === entry.id ? null : entry;
+        cursor = 0;
+        render();
+        list.scrollTop = 0;
+        // The arrows and Enter live on the search box, so the keyboard keeps
+        // working after a click. Not on a phone: that would raise the keyboard.
+        if (!matchMedia('(pointer: coarse)').matches) input.focus();
+      });
+      chips.append(chip);
+    }
+    list.append(chips);
+  }
+
+  function tile(result: SizeResult, index: number): HTMLElement {
+    const el = document.createElement('div');
+    el.className = 'picker-tile';
+    el.id = `picker-row-${index}`;
+    el.setAttribute('role', 'option');
+    el.setAttribute('aria-selected', String(index === cursor));
+    el.dataset.index = String(index);
+    const shape = swatch(result.w, result.h);
+    shape.classList.add('picker-tile-shape');
+    // The home tile is a picture of the shape, twice the size of a row's.
+    shape.style.width = `${parseFloat(shape.style.width) * 2.4}px`;
+    shape.style.height = `${parseFloat(shape.style.height) * 2.4}px`;
+    const text = document.createElement('span');
+    text.className = 'picker-tile-text';
+    const name = document.createElement('strong');
+    name.textContent = result.name;
+    const ratio = document.createElement('span');
+    ratio.textContent = result.detail;
+    const dims = document.createElement('span');
+    dims.className = 'picker-tile-dims';
+    dims.textContent = `${result.w} × ${result.h}`;
+    text.append(name, ratio, dims);
+    el.append(shape, text);
+    const held = isPinned(pins, result.w, result.h);
+    el.append(rowAction(
+      held ? 'Unpin from the top bar' : 'Pin to the top bar',
+      icon('pin'),
+      () => {
+        pins = togglePinned(result.name, result.w, result.h);
+        onPinsChange?.(pins);
+        render();
+      },
+      held,
+    ));
+    el.addEventListener('mousedown', (event) => {
+      event.preventDefault();
+      choose(index);
+    });
+    el.addEventListener('mousemove', () => setCursor(index));
+    return el;
+  }
+
+  // ---- the custom form -----------------------------------------------------
+
+  function openCustom(): void {
+    const seed = getCurrent?.() ?? template ?? { w: 1080, h: 1080 };
+    custom = { w: seed.w, h: seed.h, locked: false };
+    category = null;
+    render();
+    list.querySelector<HTMLInputElement>('#customWidth')?.select();
+  }
+
+  function closeCustom(): void {
+    custom = null;
+    render();
+    if (!matchMedia('(pointer: coarse)').matches) input.focus();
+  }
+
+  function applyCustom(): void {
+    if (!custom) return;
+    const { w, h } = custom;
+    if (!(w > 0 && h > 0)) return;
+    close();
+    onPick({ kind: 'custom', key: `custom:${w}x${h}`, name: 'Custom size', detail: 'Exact pixels', w, h });
+  }
+
+  function renderCustom(): void {
+    if (!custom) return;
+    const form = document.createElement('form');
+    form.className = 'picker-custom';
+    form.addEventListener('submit', (event) => { event.preventDefault(); applyCustom(); });
+
+    const field = (id: string, label: string, value: number): HTMLInputElement => {
+      const wrap = document.createElement('label');
+      wrap.className = 'picker-custom-field';
+      const name = document.createElement('span');
+      name.textContent = label;
+      const box = document.createElement('input');
+      box.id = id;
+      box.type = 'number';
+      box.inputMode = 'numeric';
+      box.min = '1';
+      box.max = '16384';
+      box.step = '1';
+      box.value = String(value);
+      box.className = 'text-input';
+      wrap.append(name, box);
+      form.append(wrap);
+      return box;
+    };
+
+    const width = field('customWidth', 'Width', custom.w);
+
+    const lock = document.createElement('button');
+    lock.type = 'button';
+    lock.className = 'ghost picker-custom-lock';
+    const paintLock = (): void => {
+      if (!custom) return;
+      lock.setAttribute('aria-pressed', String(custom.locked));
+      lock.title = custom.locked ? 'Shape locked — unlock to set width and height separately' : 'Lock the shape so the other side follows';
+      lock.setAttribute('aria-label', lock.title);
+      lock.replaceChildren(icon(custom.locked ? 'link' : 'unlink'));
+    };
+    paintLock();
+    lock.addEventListener('click', () => {
+      if (!custom) return;
+      custom.locked = !custom.locked;
+      paintLock();
+      readout();
+    });
+    form.append(lock);
+
+    const height = field('customHeight', 'Height', custom.h);
+
+    const note = document.createElement('p');
+    note.className = 'picker-custom-note';
+    form.append(note);
+    const readout = (): void => {
+      if (!custom) return;
+      const ok = custom.w > 0 && custom.h > 0;
+      note.textContent = ok
+        ? `${custom.w} × ${custom.h} — ${ratioLabel(custom.w, custom.h)}. Press Enter to apply.`
+        : 'Both sides need at least one pixel.';
+      if (applyButton) applyButton.disabled = !ok;
+    };
+
+    const clamp = (raw: string): number => {
+      const n = Math.round(Number(raw));
+      return Number.isFinite(n) && n > 0 ? Math.min(n, 16384) : 0;
+    };
+    width.addEventListener('input', () => {
+      if (!custom) return;
+      const ratio = custom.w > 0 && custom.h > 0 ? custom.w / custom.h : 1;
+      custom.w = clamp(width.value);
+      if (custom.locked && custom.w > 0) {
+        custom.h = Math.max(1, Math.round(custom.w / ratio));
+        height.value = String(custom.h);
+      }
+      readout();
+    });
+    height.addEventListener('input', () => {
+      if (!custom) return;
+      const ratio = custom.w > 0 && custom.h > 0 ? custom.w / custom.h : 1;
+      custom.h = clamp(height.value);
+      if (custom.locked && custom.h > 0) {
+        custom.w = Math.max(1, Math.round(custom.h * ratio));
+        width.value = String(custom.w);
+      }
+      readout();
+    });
+    const back = document.createElement('button');
+    back.type = 'button';
+    back.className = 'account-link picker-custom-back';
+    back.textContent = '← All sizes';
+    back.addEventListener('click', closeCustom);
+    form.append(back);
+
+    readout();
+    list.append(form);
+  }
+
+  // ---- drawing -------------------------------------------------------------
+
+  function setHead(name: string, detail: string): void {
+    if (title) title.textContent = name;
+    if (lead) lead.textContent = detail;
+  }
+
   function render(): void {
     list.textContent = '';
+    if (applyButton) applyButton.disabled = false;
+    if (searchBox) searchBox.hidden = Boolean(custom);
+    root.classList.toggle('is-custom', Boolean(custom));
     if (naming) {
+      setHead('Name this size', 'It goes on the top bar under that name.');
       renderNaming();
       return;
     }
+    if (custom) {
+      setHead('Custom size', 'Set exact dimensions.');
+      renderCustom();
+      return;
+    }
 
-    rows = search(input.value, recents, saved, template, pins);
-    if (template && !input.value.trim()) {
-      const templateResult: SizeResult = {
-        kind: 'template',
-        key: 'template',
-        name: 'Match this image',
-        detail: 'Its own pixel size',
-        w: template.w,
-        h: template.h,
-        section: 'From this image',
-      };
-      rows = [templateResult, ...rows];
+    const typed = Boolean(input.value.trim());
+    if (typed) category = null;
+    setHead('Choose a size', category ? `${category.label} sizes, by platform.` : 'Search or start with a common format.');
+
+    if (typed) {
+      rows = search(input.value, recents, saved, template, pins);
+    } else if (category) {
+      renderChips();
+      rows = browse(category);
+    } else {
+      renderCards();
+      renderChips();
+      rows = [...formatRows(), ...search('', recents, saved, template, pins)];
     }
     cursor = Math.min(cursor, Math.max(0, rows.length - 1));
 
@@ -267,8 +528,23 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
       return;
     }
 
+    // The common formats are a grid of tiles, not a run of rows, and they are
+    // always the first entries — so the loop below starts after them.
+    let first = 0;
+    if (!typed && !category) {
+      list.append(heading('Common formats'));
+      const grid = document.createElement('div');
+      grid.className = 'picker-formats';
+      while (first < rows.length && rows[first]?.kind === 'format') {
+        grid.append(tile(rows[first] as SizeResult, first));
+        first += 1;
+      }
+      list.append(grid);
+    }
+
     let section: string | null = null;
     rows.forEach((result, index) => {
+      if (index < first) return;
       if (result.section && result.section !== section) {
         section = result.section;
         const head = document.createElement('div');
@@ -432,6 +708,10 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
     }
     root.hidden = false;
     naming = null;
+    custom = null;
+    category = null;
+    // Opened on the home, not on whatever was typed last time.
+    input.value = '';
     saved = loadSaved();
     pins = loadPinned();
     template = openOptions.includeTemplate === false ? null : getTemplate?.() ?? null;
@@ -452,6 +732,8 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
   function close(): void {
     keepPendingRename();
     naming = null;
+    custom = null;
+    category = null;
     root.classList.remove('open');
     root.hidden = true;
     if (embedded && home) {
@@ -491,7 +773,8 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
       ArrowDown: () => move(1),
       ArrowUp: () => move(-1),
       Enter: () => choose(cursor, event.shiftKey),
-      Escape: close,
+      // Inside a door, Escape steps back out to the home first.
+      Escape: () => { if (category) { category = null; cursor = 0; render(); } else close(); },
       Tab: close,
     };
     const action = keys[event.key];
@@ -502,6 +785,23 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
 
   root.addEventListener('mousedown', (event) => {
     if (event.target === root) close();
+  });
+  // Escape from anywhere in the panel — a chip, a card, the custom form —
+  // backs out one step: the form or the door first, then the dialog. The
+  // search box has its own handler for the same key.
+  root.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || event.target === input) return;
+    event.preventDefault();
+    if (custom) closeCustom();
+    else if (category) { category = null; cursor = 0; render(); input.focus(); }
+    else close();
+  });
+  root.querySelector<HTMLButtonElement>('#pickerClose')?.addEventListener('click', () => close());
+  root.querySelector<HTMLButtonElement>('#pickerCancel')?.addEventListener('click', () => close());
+  applyButton?.addEventListener('click', () => {
+    if (custom) applyCustom();
+    else if (naming) commitNaming();
+    else choose(cursor);
   });
   trigger.addEventListener('click', () => open());
 

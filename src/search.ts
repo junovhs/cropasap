@@ -1,6 +1,7 @@
 // Size matching and ranking.
 
-import { PRESETS, RATIO_SIZES, HOT } from './presets.js';
+import { PRESETS, RATIO_SIZES, COMMON_FORMATS, presetsIn } from './presets.js';
+import type { Category } from './presets.js';
 import type { Dimensions, PinnedSize, Preset, SavedSize, SizeResult, SizeResultKind } from './domain/types.js';
 
 const NOISE = new Set<string>([
@@ -198,6 +199,8 @@ export function search(
     // Pins lead: they are the sizes this person reaches for, and on a phone,
     // where the top bar has no room for chips, this list is where they live.
     // A size that is pinned is not repeated further down under another name.
+    // The popular presets are not here: the home shows the four common shapes
+    // and the browse doors instead, and search still finds every one of them.
     const pinRows = pins.map((pin) => ({ ...pinRow(pin), section: 'Pinned' }));
     const pinned = new Set(pins.map((pin) => `${pin.w}x${pin.h}`));
     const unpinned = (result: SizeResult): boolean => !pinned.has(`${result.w}x${result.h}`);
@@ -207,18 +210,22 @@ export function search(
       .filter((preset): preset is Preset => Boolean(preset))
       .map((preset) => ({ ...presetRow(preset), section: 'Recent' }))
       .filter(unpinned);
-    const seen = new Set(recentRows.map((result) => result.id));
-    const hotRows = HOT
-      .filter((preset) => !seen.has(preset.id))
-      .map((preset) => ({ ...presetRow(preset), section: 'Popular' }))
-      .filter(unpinned);
-    return [...pinRows, ...savedRows, ...recentRows, ...hotRows];
+    return [...pinRows, ...savedRows, ...recentRows];
   }
 
   const output: SizeResult[] = [];
   const push = (result: SizeResult): void => {
     if (!output.some((existing) => existing.key === result.key)) output.push(result);
   };
+
+  // A number on its own is a square first. Every preset with that number
+  // somewhere in its pixels also answers, but "700" means 700 × 700 before it
+  // means a 2700-wide poster.
+  const bare = query.match(/^(\d{2,5})$/);
+  if (bare) {
+    const size = Number(bare[1]);
+    if (size <= 16384) push({ ...row('custom', `${size} × ${size}`, 'Square', size, size), section: 'Exact match' });
+  }
 
   const savedTokens = query.split(' ').filter(Boolean);
   for (const size of matchSaved(saved, savedTokens)) {
@@ -300,11 +307,18 @@ export function search(
     for (const { preset } of scored) push({ ...presetRow(preset), section: 'Sizes' });
   }
 
-  const bare = query.match(/^(\d{2,5})$/);
-  if (bare) {
-    const size = Number(bare[1]);
-    if (size <= 16384) push({ ...row('custom', `${size} × ${size}`, 'Square', size, size), section: 'Sizes' });
-  }
-
   return output;
+}
+
+/** The home's four shapes as rows, pinnable under their own names. */
+export function formatRows(): SizeResult[] {
+  return COMMON_FORMATS.map((format) => ({
+    ...row('format', format.name, ratioLabel(format.w, format.h), format.w, format.h),
+    section: 'Common formats',
+  }));
+}
+
+/** Everything behind one door on the home, sectioned by platform. */
+export function browse(category: Category): SizeResult[] {
+  return presetsIn(category).map((preset) => ({ ...presetRow(preset), section: preset.group }));
 }

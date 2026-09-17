@@ -1684,12 +1684,124 @@ body.is-framing .thumb.is-active { box-shadow: 0 0 0 3px var(--accent-soft), var
 .picker.open .picker-panel { transform: none; }
 
 .picker-head {
-  padding: 18px 18px 8px;
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  padding: 18px 14px 12px 18px;
+}
+.picker-titles h2 {
+  margin: 0;
   color: var(--ink);
   font-family: var(--font-disp);
-  font-size: 17px; font-weight: 600;
+  font-size: 19px; font-weight: 700;
   letter-spacing: -.02em;
 }
+.picker-titles p { margin: 3px 0 0; color: var(--ink-3); font-size: 13px; }
+.picker-close { width: 32px; min-height: 32px; padding: 0; color: var(--ink-3); }
+.picker-close .icon { width: 18px; height: 18px; }
+.picker-search[hidden] { display: none; }
+
+/* The home. Two cards, six doors, four shapes — before a single letter is
+   typed. Everything here is the same size result a row is, drawn bigger. */
+.picker-heading {
+  margin: 14px 10px 8px;
+  color: var(--ink);
+  font-family: var(--font-disp);
+  font-size: 14px; font-weight: 700;
+  letter-spacing: -.01em;
+}
+.picker-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+  padding: 2px 2px 0;
+}
+.picker-card {
+  display: flex; align-items: center; gap: 12px;
+  min-height: 66px;
+  padding: 12px 14px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--ink);
+  text-align: left;
+  box-shadow: none;
+}
+.picker-card:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-soft); color: var(--ink); }
+.picker-card-mark {
+  display: grid; place-items: center;
+  flex: 0 0 auto;
+  width: 40px; height: 40px;
+  border-radius: var(--radius-sm);
+  background: oklch(1 0 0 / 0.8);
+  color: var(--accent);
+}
+.picker-card-mark .icon, .picker-card-mark svg { width: 22px; height: 22px; }
+.picker-card-text { display: grid; gap: 2px; min-width: 0; }
+.picker-card-text strong { font-size: 14px; font-weight: 600; }
+.picker-card-text span { color: var(--ink-3); font-size: 12px; font-weight: 400; }
+
+.picker-chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 2px; }
+.picker-chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  min-height: 38px;
+  padding: 0 14px 0 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: 13px; font-weight: 600;
+  box-shadow: none;
+}
+.picker-chip svg { width: 17px; height: 17px; }
+.picker-chip:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-soft); color: var(--ink); }
+.picker-chip[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-tint); color: var(--accent-2); }
+/* Each door has its own colour on the mark, so the row reads at a glance. */
+.picker-chip.is-social svg { color: #e0457b; }
+.picker-chip.is-video svg { color: #1aa34a; }
+.picker-chip.is-ads svg { color: #f07f1a; }
+.picker-chip.is-print svg { color: #2b6cb0; }
+.picker-chip.is-documents svg { color: #6b5bd2; }
+.picker-chip.is-web svg { color: #0b8fd6; }
+
+.picker-formats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+  padding: 0 2px;
+}
+.picker-tile {
+  display: flex; align-items: center; gap: 14px;
+  min-height: 84px;
+  padding: 12px 12px 12px 14px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.picker-tile:hover { background: oklch(0.55 0.02 260 / 0.05); }
+.picker-tile[aria-selected="true"] { border-color: var(--accent); background: var(--accent-tint); }
+.picker-tile-shape { flex: 0 0 auto; }
+.picker-tile-text { display: grid; flex: 1; min-width: 0; gap: 1px; }
+.picker-tile-text strong { color: var(--ink); font-size: 14px; font-weight: 600; }
+.picker-tile-text span { color: var(--ink-3); font-size: 12px; }
+.picker-tile-text .picker-tile-dims { color: var(--ink); font-family: var(--font-mono); font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.picker-tile:hover .row-action,
+.picker-tile[aria-selected="true"] .row-action { opacity: 1; }
+
+/* The custom form: two numbers and a lock between them, the same furniture
+   as the panel's Width and Height boxes. */
+.picker-custom {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: end;
+  gap: 10px;
+  padding: 10px 8px 6px;
+}
+.picker-custom-field { display: grid; gap: 6px; color: var(--ink-3); font-size: 12px; font-weight: 600; }
+.picker-custom-field .text-input { font-family: var(--font-mono); font-size: 18px; font-variant-numeric: tabular-nums; }
+.picker-custom-lock { width: 36px; min-height: 42px; padding: 0; color: var(--ink-4); }
+.picker-custom-lock .icon, .picker-custom-lock svg { width: 17px; height: 17px; }
+.picker-custom-lock[aria-pressed="true"] { color: var(--accent); background: var(--accent-soft); }
+.picker-custom-note { grid-column: 1 / -1; margin: 6px 2px 0; color: var(--ink-3); font-size: 12.5px; }
+.picker-custom-back { grid-column: 1 / -1; justify-self: start; margin-top: 4px; }
 .picker-search {
   display: flex; align-items: center; gap: 12px;
   margin: 0 18px 14px;
@@ -1827,14 +1939,18 @@ button.picker-ratio:hover:not(:disabled) { border-color: var(--accent); backgrou
 .row-action.is-on:hover:not(:disabled) { background: var(--accent-soft); color: var(--accent-2); }
 
 .picker-foot {
-  display: flex; gap: 14px; flex-wrap: wrap;
+  display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
   padding: 10px 14px;
   border-top: 1px solid var(--line-soft);
   background: var(--bg-2);
   color: var(--ink-3); font-size: 11px;
 }
+.picker-keys { display: flex; gap: 14px; flex-wrap: wrap; }
+.picker.is-custom .picker-keys { visibility: hidden; }
 .picker-foot kbd { margin-right: 2px; }
 .picker-foot span[hidden] { display: none; }
+.picker-actions { display: flex; gap: 8px; margin-left: auto; }
+.picker-actions button { min-height: 38px; padding: 0 18px; font-size: 13.5px; }
 
 /* ---- mobile sheet plumbing (inert on desktop) ---- */
 
@@ -2204,6 +2320,13 @@ button.picker-ratio:hover:not(:disabled) { border-color: var(--accent); backgrou
   .picker-input { font-size: 16px; }
   .text-input { font-size: 16px; }
   .picker-foot { gap: 10px; font-size: 10.5px; }
+  /* Keys are for keyboards; on a phone the two buttons are the whole footer. */
+  .picker-keys { display: none; }
+  .picker-actions { width: 100%; }
+  .picker-actions button { flex: 1; min-height: 44px; }
+  .picker-formats { grid-template-columns: 1fr 1fr; }
+  .picker-tile { min-height: 72px; gap: 10px; padding: 10px 6px 10px 10px; }
+  .picker-tile .row-action { width: 20px; }
 }
 
 /* Narrow phones: the sheet button gives up its second word before either mode

@@ -124,7 +124,7 @@ export const docsContent = defineDocs({
       blocks: [
         {
           kind: 'p',
-          text: 'Open the size picker: click the size chip in the top bar, or press Ctrl/⌘ K. Type. Pick a result.',
+          text: 'Open the size picker: click the size chip in the top bar, or press Ctrl/⌘ K. Before you type it offers **Match this image**, **Custom size** (exact width and height, with a shape lock), six doors into the presets — Social, Video, Ads, Print, Documents, Web — the four common formats, and your pinned, saved and recent sizes. Type and it becomes a search.',
         },
         {
           kind: 'table',

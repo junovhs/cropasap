@@ -1,6 +1,6 @@
 // The size catalogue.
 
-import type { Preset } from './domain/types.js';
+import type { Dimensions, Preset } from './domain/types.js';
 //
 // Search stays deliberately dumb: each preset carries marketer language,
 // platform slang, format names, ratios, and use-case aliases. The builder
@@ -2474,3 +2474,92 @@ export const RATIO_SIZES: readonly { readonly ratio: number; readonly w: number;
 ];
 
 export const HOT: readonly Preset[] = PRESETS.filter((preset) => preset.hot);
+
+// The six doors on the picker's home. A group can stand behind more than one
+// door — a YouTube thumbnail is Video and Social both — and a group behind
+// none is still reachable by search. `groups` is a prefix match on the
+// preset's group name, so "Print" also takes "Print marketing".
+export interface Category {
+  readonly id: string;
+  readonly label: string;
+  readonly icon: 'users' | 'play' | 'megaphone' | 'printer' | 'file-text' | 'app-window';
+  readonly groups: readonly string[];
+}
+
+export const CATEGORIES: readonly Category[] = [
+  {
+    id: 'social', label: 'Social', icon: 'users',
+    groups: [
+      'Instagram', 'Facebook', 'TikTok', 'YouTube', 'X / Twitter', 'LinkedIn', 'Pinterest',
+      'Snapchat', 'Threads', 'Bluesky', 'Mastodon', 'Reddit', 'Tumblr', 'Discord', 'Twitch',
+      'Messenger', 'Messaging', 'Medium', 'Substack', 'Quora', 'Community',
+      'Google Business Profile', 'Creator membership', 'Gaming community', 'Local discovery',
+    ],
+  },
+  {
+    id: 'video', label: 'Video', icon: 'play',
+    groups: [
+      'YouTube', 'TikTok', 'Presentations & video', 'TV & OTT', 'Twitch', 'Events & calls',
+      'Podcast & music', 'Music platforms', 'Instagram', 'Snapchat',
+    ],
+  },
+  {
+    id: 'ads', label: 'Ads', icon: 'megaphone',
+    groups: [
+      'Display ads', 'Paid media', 'Outdoor advertising', 'Signage', 'Lifecycle marketing',
+      'Email', 'Newsletter', 'Notifications', 'Product launches', 'Crowdfunding',
+    ],
+  },
+  {
+    id: 'print', label: 'Print', icon: 'printer',
+    groups: ['Print', 'Packaging', 'Merchandise', 'Publishing', 'Outdoor advertising', 'Signage'],
+  },
+  {
+    id: 'documents', label: 'Documents', icon: 'file-text',
+    groups: [
+      'Documents', 'Presentations & video', 'Publishing', 'Education', 'Travel operations',
+      'Productivity', 'Collaboration',
+    ],
+  },
+  {
+    id: 'web', label: 'Web', icon: 'app-window',
+    groups: [
+      'Web', 'CMS', 'Developer', 'App stores', 'Commerce', 'Marketplaces', 'Listings',
+      'Hospitality', 'Travel marketplace', 'Digital canvas', 'Creative portfolio',
+      'Event platforms', 'Wallet passes', 'Steam', 'Gaming marketplace', 'Email', 'Newsletter',
+    ],
+  },
+];
+
+/**
+ * The presets behind one door, platform by platform in the order the door
+ * lists them — Instagram before Mastodon under Social — and in catalogue
+ * order within a platform.
+ */
+export function presetsIn(category: Category): readonly Preset[] {
+  const out: Preset[] = [];
+  const seen = new Set<string>();
+  for (const group of category.groups) {
+    for (const preset of PRESETS) {
+      if (!seen.has(preset.id) && preset.group.startsWith(group)) {
+        seen.add(preset.id);
+        out.push(preset);
+      }
+    }
+  }
+  return out;
+}
+
+// The four shapes almost everything is, ready before anyone types. Named for
+// what they are rather than for a platform, since the same 1080 × 1350 is an
+// Instagram post and a Facebook one and a flyer.
+export interface CommonFormat extends Dimensions {
+  readonly name: string;
+}
+
+export const COMMON_FORMATS: readonly CommonFormat[] = [
+  { name: 'Square', w: 1080, h: 1080 },
+  { name: 'Portrait', w: 1080, h: 1350 },
+  { name: 'Landscape', w: 1920, h: 1080 },
+  { name: 'Vertical', w: 1080, h: 1920 },
+];
