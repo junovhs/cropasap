@@ -20,6 +20,6 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",
-    "dopedocs": "github:junovhs/dopedocs#25e29ad5a4335bc6e62bf01c81d169e2d68e403c"
+    "dopedocs": "github:junovhs/dopedocs#8a71149933fcca54f8848b76c3803291b3903316"
   }
 }
