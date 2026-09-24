@@ -198,22 +198,31 @@ const framingRoom = (): boolean => room !== 'adjust' && room !== 'convert';
 function syncStageChrome(): void {
   const framing = framingRoom();
   const batching = room === 'batch';
-  $('#empty').hidden = hasImage && !loadingActive;
+  const converting = room === 'convert';
+  // Convert's stage is its own drop zone (DEC-07), so the crop's welcome card
+  // never stands in front of it.
+  $('#empty').hidden = (hasImage && !loadingActive) || converting;
   // The rooms are the app's navigation, so they stay on screen and go quiet
   // instead of disappearing: an empty rail reads as a broken rail. Batch is the
   // exception — it is a door to somewhere else, and it opens with no picture.
   $<HTMLButtonElement>('#modeCrop').disabled = !hasImage;
   $<HTMLButtonElement>('#modeAdjust').disabled = !hasImage;
-  $<HTMLButtonElement>('#modeConvert').disabled = !hasImage;
+  // Convert is a front door too: converting needs files, not a picture on the
+  // stage, so the room opens empty and asks for them.
   $('#adjust').hidden = !hasImage || room !== 'adjust';
   // Nothing frames in Adjust or Convert, so the stage stops taking pointers
   // and the phone layout gives the drawer its own room below the picture.
   view.setLocked(!framing);
   document.body.classList.toggle('is-adjusting', hasImage && room === 'adjust');
-  $('#convert').hidden = !hasImage || room !== 'convert';
-  // The export panel is a crop's way out; Convert has its own button, so the
-  // crop's size, format and export step aside rather than offer a second answer.
-  document.body.classList.toggle('is-converting', hasImage && room === 'convert');
+  // The panel belongs to the room you are in: Convert's choices and button
+  // replace the crop's, so no control is ever on screen twice (DEC-07).
+  document.body.classList.toggle('is-converting', converting);
+  $('#convertTable').hidden = !converting;
+  $('#sheetOpenLabel').textContent = converting ? 'Convert' : 'Export';
+  // With nothing listed there is nothing to convert, so the phone's sheet
+  // button waits for files instead of opening onto a disabled one.
+  $('#sheetOpen').classList.toggle('is-idle', converting && !hasImage);
+  convertPanel?.setActive(converting);
   // The crop readouts describe a framing decision, so they are only true while
   // that is the decision being made.
   $('#readout').hidden = !hasImage || !framing;
@@ -231,7 +240,6 @@ function syncStageChrome(): void {
   $('#modeAdjust').setAttribute('aria-selected', String(room === 'adjust'));
   $('#modeConvert').setAttribute('aria-selected', String(room === 'convert'));
   $('#modeBatch').setAttribute('aria-selected', String(batching));
-  if (room === 'convert') convertPanel?.sync();
   syncFramingChrome();
 }
 
@@ -387,12 +395,16 @@ function goTo(next: Room): void {
     return;
   }
 
+  const leavingConvert = room === 'convert';
   room = next;
   store.set({ batch: next === 'batch' });
+  // Convert reads its files at thumbnail size. Back on a frame, the picture
+  // gets its full editing preview.
+  if (leavingConvert) promoteActiveImage();
   syncStageChrome();
   syncUI();
   announce(ROOM_SAID[next]);
-  if (next !== 'adjust') canvas.focus();
+  if (next !== 'adjust' && next !== 'convert') canvas.focus();
 }
 
 function setChromeVisible(on: boolean): void {
@@ -643,6 +655,10 @@ async function endLoading(generation: number, success: boolean): Promise<void> {
 async function intake(fileList: FileList | readonly File[]): Promise<void> {
   const files = Array.from(fileList).filter((file) => file.type.startsWith('image/'));
   if (!files.length) { announce('No images in that drop'); return; }
+  // A drop in Convert joins the list and stays in Convert (DEC-07): the files
+  // are the job, so there is no batch to enter and no frame to set. Choosing
+  // Batch from here still opens Batch with what was picked.
+  if (room === 'convert' && !awaitingBatchSize) { await intakeForConvert(files); return; }
   // A new intake supersedes an unfinished automatic Batch choice. This mainly
   // protects paste and programmatic file selection, which can still arrive
   // while a pointer-modal is on screen.
@@ -763,6 +779,79 @@ async function intake(fileList: FileList | readonly File[]): Promise<void> {
     if (automaticBatch) closeCoach(false);
     announce('That image could not be prepared');
   }
+}
+
+// Convert's intake. Files are read one at a time and join the list as each
+// one is ready, so the first rows appear at once and a three-hundred-file drop
+// is a table filling in rather than a progress bar in front of an empty one.
+// Previews are thumbnail-sized: Convert re-reads every original when it
+// writes, and nothing here needs more than a row's worth of picture.
+const CONVERT_PREVIEW_MAX_EDGE = 256;
+let convertReading = 0;
+
+async function intakeForConvert(files: readonly File[]): Promise<void> {
+  convertReading += files.length;
+  convertPanel?.setReading(convertReading);
+  let added = 0;
+  let pending: CropItem[] = [];
+  let flushed = performance.now();
+
+  const flush = (): void => {
+    if (!pending.length) return;
+    const state = store.get();
+    const empty = state.items.length === 0;
+    const first = pending[0];
+    // The crop still wants a sensible size to open on if someone goes there
+    // next, and the first image is the best answer while nobody has chosen.
+    if (empty && first && !sizeChosen && !isFreeform()) adoptImageSize(first);
+    const target = store.get().target;
+    const framed = pending.map((item) => suggestFrame(item, target));
+    if (empty && framed[0] && (!sizeChosen || isFreeform())) {
+      framed[0] = { ...framed[0], frame: wholeFrame(framed[0]), framedFor: targetKey(target) };
+    }
+    pending = [];
+    store.set({ items: [...store.get().items, ...framed] });
+    if (store.get().activeIndex < 0) activate(0, false);
+    flushed = performance.now();
+  };
+
+  for (const file of files) {
+    try {
+      pending.push(createItem(file, await decodeImage(file, CONVERT_PREVIEW_MAX_EDGE)));
+      added += 1;
+    } catch {
+      announce(`${file.name} could not be opened`);
+    }
+    convertReading -= 1;
+    convertPanel?.setReading(convertReading);
+    // Rows land in small groups: often enough to watch the list grow, rarely
+    // enough that three hundred files are not three hundred re-renders.
+    if (pending.length >= 24 || performance.now() - flushed > 250) flush();
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  }
+  flush();
+  announce(added
+    ? `${added} file${added === 1 ? '' : 's'} added to convert`
+    : 'None of those images could be opened');
+}
+
+/** Take files off the list, keeping the crop's picture if it is still on it. */
+function removeItems(ids: readonly string[]): void {
+  const gone = new Set(ids);
+  const state = store.get();
+  const current = activeItem(state);
+  const items = state.items.filter((item) => !gone.has(item.id));
+  if (items.length === state.items.length) return;
+  if (!items.length) {
+    store.set({ items: [], activeIndex: -1 });
+    setChromeVisible(false);
+    announce('List cleared');
+    return;
+  }
+  const kept = current ? items.findIndex((item) => item.id === current.id) : -1;
+  store.set({ items, activeIndex: kept });
+  if (kept < 0) activate(0, false);
+  announce(`${state.items.length - items.length} removed`);
 }
 
 // Set while a deliberate entry into Batch is waiting for its images: the flow is
@@ -1187,7 +1276,10 @@ exportPanel = createExportPanel({
 
 convertPanel = createConvertPanel({
   getState: () => store.get(),
+  subscribe: (listener) => { store.subscribe(listener); },
   announce,
+  onChoose: () => openPicker(),
+  onRemove: removeItems,
 });
 
 // ---- history ---------------------------------------------------------------

@@ -15,7 +15,7 @@
 
 import { searchSizeBudget } from './application/size-budget.js';
 import { makeZip } from './zip.js';
-import { FORMATS, deliver, encode, expandName, sanitize, unique, type Delivery } from './export.js';
+import { FORMATS, deliver, encode, expandName, sanitize, toBlob, unique, type Delivery } from './export.js';
 import { canvasContext } from './infrastructure/dom.js';
 import { decodeOriginal, sourceDimensions } from './infrastructure/image-decoder.js';
 import type { CropItem, ExportFormat } from './domain/types.js';
@@ -25,6 +25,19 @@ export interface ConvertOptions {
   readonly quality: number;
   readonly template: string;
   readonly targetBytes?: number;
+  /** A file's own target when its row overrides the shared one. */
+  readonly formatFor?: (item: CropItem) => ExportFormat;
+}
+
+/** What one file will be written as: its override, or the shared choice. */
+export function planFor(item: CropItem, options: Pick<ConvertOptions, 'format' | 'targetBytes' | 'formatFor'>): {
+  readonly format: ExportFormat;
+  readonly targetBytes: number | undefined;
+} {
+  const format = options.formatFor?.(item) ?? options.format;
+  // A size limit is a quality search, so it only means something to a lossy
+  // target. A row overridden to PNG simply is not bound by it.
+  return { format, targetBytes: FORMATS[format].lossy ? options.targetBytes : undefined };
 }
 
 export interface ConvertedFile {
@@ -81,18 +94,28 @@ export async function convertOne(
   item: CropItem,
   { format, quality, targetBytes }: Pick<ConvertOptions, 'format' | 'quality' | 'targetBytes'>,
   onProgress?: (fraction: number) => void,
+  /**
+   * An estimate rather than the file: skip our own PNG pass, which runs its
+   * survey and filters on the main thread. The canvas PNG it would compete with
+   * is the larger of the two, so the estimate is an upper bound, never a
+   * flattering guess.
+   */
+  estimate = false,
 ): Promise<Blob> {
   if (targetBytes !== undefined && !FORMATS[format].lossy) {
     throw new Error('File size limits are available for JPEG and WebP');
   }
   const original = await decodeOriginal(item.file);
+  // Decode off the main thread now, so the draw below is a copy rather than a
+  // synchronous decode of every pixel in the middle of someone's click.
+  await original.decode().catch(() => undefined);
   let surface: HTMLCanvasElement | undefined;
   let blob: Blob;
   try {
     const canvas = surfaceOf(original, format);
     surface = canvas;
     const encodeAtQuality = async (q: number): Promise<Blob> => {
-      const encoded = await encode(canvas, format, q);
+      const encoded = estimate ? await toBlob(canvas, format, q) : await encode(canvas, format, q);
       const { mime, label } = FORMATS[format];
       if (format !== 'png' && encoded.type && encoded.type !== mime) {
         throw new Error(`This browser cannot write ${label}`);
@@ -129,9 +152,14 @@ export async function convertAll(
   const files: ConvertedFile[] = [];
 
   for (const [index, item] of items.entries()) {
-    const blob = await convertOne(item, options, (fraction) => onProgress?.((index + fraction) / items.length));
+    const plan = planFor(item, options);
+    const blob = await convertOne(
+      item,
+      { format: plan.format, quality: options.quality, targetBytes: plan.targetBytes },
+      (fraction) => onProgress?.((index + fraction) / items.length),
+    );
     const source = sourceDimensions(item.image);
-    const ext = EXT_BY_MIME[blob.type] ?? FORMATS[options.format].ext;
+    const ext = EXT_BY_MIME[blob.type] ?? FORMATS[plan.format].ext;
     files.push({
       name: expandName(options.template, {
         name: item.name,
@@ -143,7 +171,7 @@ export async function convertAll(
         w: source.width,
         h: source.height,
         ext,
-        label: FORMATS[options.format].label,
+        label: FORMATS[plan.format].label,
       }),
       blob,
       fromBytes: item.file.size,

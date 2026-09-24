@@ -63,7 +63,7 @@
            the way out: the export panel changes the format of a crop, this
            changes the format of a file. -->
       <button id="modeConvert" class="nav-item" type="button" role="tab"
-        aria-selected="false" aria-controls="convert">
+        aria-selected="false" aria-controls="convertTable">
         <span class="icon" data-icon="swap"></span>
         <span class="nav-label">Convert</span>
       </button>
@@ -86,49 +86,6 @@
       <p class="adjust-keep">Edits stay with this image and are written into the export.</p>
     </section>
 
-    <!-- Convert takes the same place as Adjust: the picture stays on the
-         canvas, because seeing what you are about to re-encode is the point.
-         It used to sit inside the stage, under a full-height canvas, where the
-         stage's overflow clipped it out of sight. -->
-    <div id="convert" class="adjust convert" role="tabpanel" aria-labelledby="modeConvert" hidden>
-      <div class="adjust-inner">
-        <div class="adjust-head">
-          <span class="icon adjust-mark" data-icon="swap"></span>
-          <h2>Convert</h2>
-        </div>
-
-        <p id="convertSource" class="convert-source">Nothing loaded.</p>
-
-        <div id="convertFormatGroup" class="segmented" role="radiogroup" aria-label="Convert to">
-          <button type="button" role="radio" data-format="webp" aria-checked="true">WebP</button>
-          <button type="button" role="radio" data-format="png" aria-checked="false">PNG</button>
-          <button type="button" role="radio" data-format="jpeg" aria-checked="false">JPEG</button>
-        </div>
-
-        <div id="convertQualityRow" class="convert-row">
-          <label for="convertQuality">Quality</label>
-          <input id="convertQuality" type="range" min="10" max="100" step="1" value="86">
-          <output id="convertQualityValue" for="convertQuality">86</output>
-        </div>
-
-        <div id="convertBudgetRow" class="convert-budget">
-          <label for="convertBudget">Fit under</label>
-          <input id="convertBudget" type="number" inputmode="numeric" min="1" max="1000000" step="1" placeholder="No limit" aria-describedby="convertBudgetHint">
-          <span>KB</span>
-          <p id="convertBudgetHint">Per image. Keeps the original dimensions.</p>
-        </div>
-        <p id="convertResult" class="convert-result" role="status"></p>
-        <button id="convertSmallest" class="secondary convert-smallest" type="button" hidden>Use smallest without a limit</button>
-
-        <button id="convertGo" class="primary convert-go" type="button" disabled>
-          <span id="convertFill" class="export-fill"></span>
-          <span id="convertGoLabel" class="convert-go-label">Convert</span>
-        </button>
-
-        <p id="convertNote" class="adjust-keep">Pixels are left exactly as they are.</p>
-      </div>
-    </div>
-
     <div class="rail-foot">
       <!-- Two sentences about direct manipulation. They used to float over the
            picture; down here they stop competing with it. -->
@@ -141,7 +98,7 @@
 
     <!-- Mobile only: the right panel has nowhere to live, so it becomes a sheet. -->
     <label id="sheetOpen" class="sheet-open" for="panelToggle">
-      <span class="icon" data-icon="download"></span>Export
+      <span class="icon" data-icon="download"></span><span id="sheetOpenLabel">Export</span>
     </label>
   </aside>
 
@@ -312,6 +269,11 @@
 
       </div>
 
+      <!-- Convert's stage: the files, not a frame (DEC-07). It sits over the
+           canvas rather than replacing it, so the crop underneath keeps its
+           size and comes back exactly as it was left. -->
+      <div id="convertTable" class="convert-table" role="region" aria-label="Files to convert" hidden></div>
+
       <div class="drop-veil"><span>Drop to load — one image, or the whole stack</span></div>
     </section>
 
@@ -348,7 +310,7 @@
       <span>Back</span>
     </label>
 
-    <div class="panel-body">
+    <div class="panel-body" data-room="crop">
     <section class="block">
       <h2>Output size</h2>
       <!-- The same chip the top bar shows on a phone, grown up: a crop mark and
@@ -415,7 +377,47 @@
 
     </div>
 
-    <section class="block block-export">
+    <!-- Convert's side of the panel. The same slots as Export's — choices in
+         the body, one primary button at the foot — so switching rooms changes
+         what the panel says, never where things are. -->
+    <div class="panel-body convert-body" data-room="convert">
+      <section class="block">
+        <h2>Convert to</h2>
+        <div id="convertFormatGroup" class="segmented" role="radiogroup" aria-label="Convert to">
+          <button type="button" role="radio" data-format="webp" aria-checked="true">WebP</button>
+          <button type="button" role="radio" data-format="png" aria-checked="false">PNG</button>
+          <button type="button" role="radio" data-format="jpeg" aria-checked="false">JPEG</button>
+        </div>
+        <p id="convertSource" class="note convert-source">No files yet.</p>
+        <p id="convertResult" class="convert-result" role="status"></p>
+        <button id="convertSmallest" class="secondary convert-smallest" type="button" hidden>Use smallest without a limit</button>
+
+        <details id="convertMore" class="advanced convert-more">
+          <summary><span class="icon" data-icon="chevron-right"></span><span id="convertMoreSummary">Quality 86 · no size limit</span></summary>
+          <div class="convert-row">
+            <label for="convertQuality">Quality</label>
+            <input id="convertQuality" type="range" min="10" max="100" step="1" value="86">
+            <output id="convertQualityValue" for="convertQuality">86</output>
+          </div>
+          <div class="convert-budget">
+            <label for="convertBudget">Fit under</label>
+            <input id="convertBudget" type="number" inputmode="numeric" min="1" max="1000000" step="1" placeholder="No limit" aria-describedby="convertBudgetHint">
+            <span>KB</span>
+            <p id="convertBudgetHint" class="note">Per file. Finds the best quality that fits and never resizes.</p>
+          </div>
+        </details>
+      </section>
+    </div>
+
+    <section class="block block-export" data-room="convert">
+      <button id="convertGo" class="primary export-button convert-go" type="button" disabled>
+        <span class="icon" data-icon="download"></span><span id="convertGoLabel" class="convert-go-label">Convert</span>
+        <span id="convertFill" class="export-fill" aria-hidden="true"></span>
+      </button>
+      <p id="convertNote" class="note">Drop images anywhere to add them.</p>
+    </section>
+
+    <section class="block block-export" data-room="crop">
       <button id="export" class="primary export-button" type="button" disabled>
         <span class="icon" data-icon="download"></span><span id="exportLabel">Export</span>
         <span id="exportFill" class="export-fill" aria-hidden="true"></span>

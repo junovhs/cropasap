@@ -157,7 +157,7 @@ const EXT_BY_MIME: Readonly<Record<string, string>> = {
 };
 const ENCODE_TIMEOUT = 20_000;
 
-function toBlob(
+export function toBlob(
   canvas: HTMLCanvasElement,
   format: ExportFormat,
   quality: number,

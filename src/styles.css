@@ -686,40 +686,6 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 .adjust p { margin: 0; color: var(--ink-3); font-size: 11px; line-height: 1.4; }
 .adjust .adjust-keep { margin-top: 10px; color: var(--positive); }
 
-/* ---- convert panel ----
-   Shares the Adjust shell — same corner, same card — because they are the same
-   kind of thing: a job that leaves the picture on the canvas alone. */
-
-.convert .segmented { width: 100%; margin-top: 12px; }
-.convert-source {
-  margin-top: 10px !important;
-  font-variant-numeric: tabular-nums;
-  color: var(--ink-2) !important;
-}
-.convert-row {
-  display: flex; align-items: center; gap: 10px;
-  margin-top: 12px;
-  font-size: 12px; color: var(--ink-2);
-}
-.convert-row[hidden] { display: none; }
-.convert-row input[type="range"] { flex: 1; min-width: 0; }
-.convert-row output { min-width: 2.5ch; text-align: right; font-variant-numeric: tabular-nums; }
-
-/* The honest line. A saving reads as the positive the rest of the app uses; a
-   file that got bigger is stated in the warning colour rather than dressed up,
-   because converting a JPEG to PNG genuinely is the wrong move and the panel
-   should be the thing that says so. */
-.convert-result {
-  min-height: 1.2em;
-  margin-top: 10px !important;
-  color: var(--positive) !important;
-  font-variant-numeric: tabular-nums;
-}
-.convert-result.is-worse { color: var(--warn) !important; }
-
-.convert-go { position: relative; width: 100%; margin-top: 14px; overflow: hidden; }
-.convert-go-label { position: relative; z-index: 1; }
-
 .adjust-head { display: flex; align-items: center; gap: 8px; padding: 0 4px; }
 .adjust-reset { margin-left: auto; min-height: 28px; padding: 0 7px; font-size: 11px; }
 
@@ -2594,31 +2560,215 @@ body.dragging .empty-inner { border-color: var(--accent); background: var(--acce
 .alpha-note { color: var(--accent-2); font-weight: 500; }
 .alpha-note[hidden] { display: none; }
 
-/* Convert contains a complete file operation, not a single adjustment slider.
-   Its controls must remain reachable even on a short phone in landscape. */
-@media (max-width: 900px) {
-  .adjust.convert {
-    height: auto;
-    max-height: calc(100dvh - var(--header) - 80px);
-    overflow-y: auto;
-    padding: 16px;
-    overscroll-behavior: contain;
-  }
-  .convert .adjust-head { position: static; padding: 0; }
-  .convert .adjust-head h2, .convert .adjust-head .adjust-mark,
-  .convert .adjust-keep { display: block; }
-  .convert .segmented button { min-height: 44px; }
-  .convert-row input[type="range"] { min-width: 0; height: 44px; }
+/* ==========================================================================
+   Convert (DEC-07, DEC-12)
+   The stage is the list of files; the panel holds one choice and one button.
+   ========================================================================== */
+
+/* Bigger is stated in amber, the one warm colour on a cool page, so a file
+   that grew cannot be mistaken for one that shrank. */
+.convert-table, .convert-body { --worse: oklch(0.52 0.13 65); }
+
+/* The panel belongs to the room. Crop's blocks and Convert's share the same
+   slots, and only the room you are in is drawn. */
+body:not(.is-converting) .panel [data-room="convert"],
+body.is-converting .panel [data-room="crop"] { display: none; }
+/* The top bar's file name, output size and size pins all describe a crop. In
+   Convert the files are listed on the stage and nothing is cropped, so the bar
+   keeps only what is true in every room. */
+body.is-converting .topbar .file-id,
+body.is-converting .topbar .pins,
+body.is-converting .topbar .size-chip { display: none; }
+.sheet-open.is-idle { display: none; }
+
+.convert-body .segmented { width: 100%; }
+.convert-body .segmented button { flex: 1 1 0; }
+.convert-source { margin-top: 14px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+/* The honest line. A saving reads as the positive the rest of the app uses; a
+   file that got bigger is stated in the warning colour rather than dressed up. */
+.convert-result {
+  min-height: 1.4em;
+  margin: 4px 0 0;
+  color: var(--positive);
+  font-size: 13px; font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.convert-result:empty { display: none; }
+.convert-result.is-worse { color: var(--worse); }
+.convert-smallest { width: 100%; margin-top: 10px; white-space: normal; }
+.convert-smallest[hidden] { display: none; }
+.convert-more summary { font-variant-numeric: tabular-nums; }
+.convert-more[hidden] { display: none; }
+.convert-row {
+  display: flex; align-items: center; gap: 10px;
+  margin-top: 12px;
+  font-size: 12.5px; color: var(--ink-2);
+}
+.convert-row input[type="range"] { flex: 1; min-width: 0; accent-color: var(--accent); }
+.convert-row output { min-width: 3.5ch; text-align: right; font-variant-numeric: tabular-nums; }
+.convert-budget {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center; gap: 8px;
+  margin-top: 12px;
+  font-size: 12.5px; color: var(--ink-2);
+}
+.convert-budget input {
+  min-width: 0; width: 100%; min-height: 38px; padding: 6px 10px;
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--ink); font-size: 15px;
+}
+.convert-budget input:focus { border-color: var(--accent); outline: none; }
+.convert-budget .note { grid-column: 1 / -1; margin-top: 0; }
+.convert-go { position: relative; width: 100%; overflow: hidden; }
+.convert-go-label, .convert-go .icon { position: relative; z-index: 1; }
+
+/* ---- the file table ---- */
+
+/* Laid over the canvas rather than in place of it: the viewfinder keeps its
+   size, so the crop comes back exactly as it was left. */
+body.is-converting #canvas { visibility: hidden; }
+.convert-table {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex; flex-direction: column;
+  overflow: hidden auto;
+  overscroll-behavior: contain;
+  background: var(--surface);
+  scrollbar-width: thin;
+}
+.convert-table[hidden] { display: none; }
+
+.ct-empty {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  flex: 1 1 auto;
+  margin: 8px;
+  padding: 40px 24px;
+  border: 1.5px dashed var(--line);
+  border-radius: 10px;
+  text-align: center;
+  transition: border-color .15s var(--ease), background .15s var(--ease);
+}
+body.dragging .ct-empty { border-color: var(--accent); background: var(--accent-soft); }
+.ct-empty[hidden] { display: none; }
+.ct-empty-mark { width: 34px; height: 34px; margin-bottom: 14px; color: var(--accent); }
+.ct-empty h1 { margin: 0 0 8px; font-size: 24px; font-weight: 600; letter-spacing: -.03em; color: var(--ink); }
+.ct-empty p { max-width: 38ch; margin: 0 0 20px; color: var(--ink-3); font-size: 13.5px; line-height: 1.5; }
+.ct-empty .primary { min-height: 44px; padding: 0 22px; font-size: 14px; }
+.ct-empty .ct-empty-privacy { margin: 16px 0 0; font-size: 12px; color: var(--ink-4); }
+
+.ct-head {
+  position: sticky; top: 0; z-index: 2;
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+.ct-head[hidden] { display: none; }
+.ct-summary { flex: 1 1 auto; min-width: 0; margin: 0; color: var(--ink-2); font-size: 13px; font-variant-numeric: tabular-nums; }
+.ct-add, .ct-clear { min-height: 34px; padding: 0 12px; font-size: 12.5px; }
+
+/* One grid for the column labels and every row, so the columns line up
+   without a <table> and a row can still open in place. */
+.ct-columns, .ct-main {
+  display: grid;
+  grid-template-columns: 44px minmax(120px, 1.6fr) minmax(130px, 1.3fr) minmax(110px, 1fr) 64px minmax(84px, .8fr);
+  align-items: center;
+  column-gap: 14px;
+}
+.ct-columns {
+  padding: 8px 14px 6px;
+  color: var(--ink-4);
+  font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
+}
+.ct-columns[hidden] { display: none; }
+.ct-columns span:nth-child(5) { text-align: right; }
+
+.ct-list { margin: 0; padding: 0 0 12px; list-style: none; }
+.ct-row {
+  border-bottom: 1px solid var(--line-soft);
+  /* Off-screen rows cost layout and paint nothing, which is what keeps a
+     three-hundred-file list as quick to scroll as a short one. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 61px;
+}
+.ct-row.is-open { background: var(--bg); }
+.ct-main {
+  width: 100%;
+  min-height: 60px;
+  padding: 8px 14px;
+  border: 0; border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--ink-2);
+  font: inherit; font-size: 12.5px; font-weight: 400;
+  text-align: left;
+  justify-content: stretch;
+}
+.ct-main:hover:not(:disabled) { background: var(--accent-soft); }
+.ct-main:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.ct-thumb {
+  width: 44px; height: 44px;
+  border-radius: 5px;
+  background:
+    repeating-conic-gradient(oklch(0.93 0.005 260) 0 25%, transparent 0 50%) 0 0 / 10px 10px,
+    #fff;
+  box-shadow: inset 0 0 0 1px var(--line-soft);
+}
+.ct-name-cell { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.ct-name { overflow: hidden; color: var(--ink); font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.ct-losses { display: flex; flex-wrap: wrap; gap: 4px; }
+.ct-losses[hidden] { display: none; }
+.ct-loss { padding: 1px 6px; border-radius: 4px; background: var(--accent-tint); color: var(--worse); font-size: 10.5px; }
+.ct-now, .ct-becomes { font-variant-numeric: tabular-nums; }
+.ct-becomes { color: var(--ink); }
+.ct-becomes.is-override { color: var(--accent-2); font-weight: 600; }
+.ct-change { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.ct-change[data-tone="better"], .ct-status[data-tone="better"] { color: var(--positive); }
+.ct-change[data-tone="worse"], .ct-status[data-tone="worse"] { color: var(--worse); }
+.ct-status { color: var(--ink-3); font-size: 12px; }
+
+.ct-detail {
+  display: grid; gap: 12px;
+  padding: 2px 14px 16px 72px;
+}
+.ct-detail[hidden] { display: none; }
+.ct-detail-text { margin: 0; color: var(--ink-3); font-size: 12.5px; line-height: 1.5; font-variant-numeric: tabular-nums; }
+.ct-detail-pick { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.ct-detail-label { color: var(--ink-2); font-size: 12.5px; font-weight: 500; }
+.ct-override { display: inline-grid; grid-template-columns: repeat(4, auto); width: auto; }
+.ct-override button { min-height: 34px; padding: 0 12px; font-size: 12px; }
+.ct-remove { justify-self: start; min-height: 32px; padding: 0 8px; color: var(--danger); font-size: 12.5px; }
+
+@media (min-width: 901px) and (max-width: 1250px) {
+  /* Status gives way so the numbers keep their width. */
+  .ct-columns, .ct-main { grid-template-columns: 44px minmax(100px, 1.4fr) minmax(120px, 1.2fr) minmax(100px, 1fr) 56px; }
+  .ct-columns span:nth-child(6), .ct-status { display: none; }
 }
 
-.convert-budget { display: grid; grid-template-columns: auto minmax(80px, 1fr) auto; align-items: center; gap: 8px; margin-top: 12px; font-size: 12px; }
-.convert-budget[hidden] { display: none; }
-.convert-budget input { min-width: 0; width: 100%; min-height: 36px; padding: 6px 8px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink); font-size: 16px; }
-.convert-budget p { grid-column: 1 / -1; }
-.convert-smallest { width: 100%; margin-top: 8px; white-space: normal; }
-.convert .segmented button[aria-checked="true"]:hover { background: var(--accent); color: #fff; }
-
-/* Stopgap until Convert owns the right-hand panel (CONV-06): while converting,
-   the crop's export controls are not the job, so they are not on screen. */
-body.is-converting .panel > :not(.sheet-close),
-body.is-converting .sheet-open { display: none; }
+@media (max-width: 900px) {
+  .convert-table { border-radius: 8px; box-shadow: inset 0 0 0 1px var(--line-soft); }
+  .ct-empty { margin: 0; border-radius: 8px; padding: 28px 18px; }
+  .ct-empty h1 { font-size: 20px; }
+  .ct-head { padding: 10px 12px; }
+  .ct-clear { padding: 0 8px; }
+  .ct-columns { display: none !important; }
+  /* A row becomes a card: picture, name, and the before and after under it. */
+  .ct-main {
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+    grid-template-areas: "thumb name change" "thumb now now" "thumb becomes status";
+    row-gap: 2px;
+    padding: 10px 12px;
+  }
+  .ct-thumb { grid-area: thumb; align-self: start; }
+  .ct-name-cell { grid-area: name; }
+  .ct-now { grid-area: now; color: var(--ink-3); font-size: 12px; }
+  .ct-becomes { grid-area: becomes; font-size: 12px; }
+  .ct-becomes::before { content: "→ "; color: var(--ink-4); }
+  .ct-change { grid-area: change; }
+  .ct-status { grid-area: status; justify-self: end; font-size: 11.5px; }
+  .ct-row { contain-intrinsic-size: auto 82px; }
+  .ct-detail { padding: 0 12px 14px; }
+  .convert-row input[type="range"] { height: 40px; }
+  .convert-body .segmented button { min-height: 44px; }
+}
