@@ -211,6 +211,9 @@ function syncStageChrome(): void {
   view.setLocked(!framing);
   document.body.classList.toggle('is-adjusting', hasImage && room === 'adjust');
   $('#convert').hidden = !hasImage || room !== 'convert';
+  // The export panel is a crop's way out; Convert has its own button, so the
+  // crop's size, format and export step aside rather than offer a second answer.
+  document.body.classList.toggle('is-converting', hasImage && room === 'convert');
   // The crop readouts describe a framing decision, so they are only true while
   // that is the decision being made.
   $('#readout').hidden = !hasImage || !framing;

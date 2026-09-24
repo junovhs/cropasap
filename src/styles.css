@@ -2617,3 +2617,8 @@ body.dragging .empty-inner { border-color: var(--accent); background: var(--acce
 .convert-budget p { grid-column: 1 / -1; }
 .convert-smallest { width: 100%; margin-top: 8px; white-space: normal; }
 .convert .segmented button[aria-checked="true"]:hover { background: var(--accent); color: #fff; }
+
+/* Stopgap until Convert owns the right-hand panel (CONV-06): while converting,
+   the crop's export controls are not the job, so they are not on screen. */
+body.is-converting .panel > :not(.sheet-close),
+body.is-converting .sheet-open { display: none; }
