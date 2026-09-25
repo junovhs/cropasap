@@ -538,51 +538,6 @@ body.is-converting .stage-toolbar { display: none; }
 .stage-col .stage-segmented button[aria-checked="true"]:hover:not(:disabled) { background: var(--stage-ink); color: var(--stage); }
 .view-long { display: none; }
 
-/* ---- "Where's it going?": the next step, asked on the stage ---- */
-
-/* Its own row under the tools, so it asks without covering the picture. The
-   zero-height full-width item is the line break that puts it there. */
-.stage-toolbar { flex-wrap: wrap; row-gap: 0; }
-.stage-toolbar:has(#sizeAsk:not([hidden]))::after { content: ""; order: 2; flex: 0 0 100%; height: 6px; }
-/* Paper on the light box: the one light thing on the stage, so it reads as the
-   thing to use — the same field as the palette's search, which it opens.
-   Scoped to .stage-col so it outranks the dark HUD button rule. */
-.stage-col .size-ask {
-  order: 3;
-  flex: 0 1 640px;
-  display: flex; align-items: center; gap: 14px;
-  margin: 0 auto 4px;
-  min-height: 58px;
-  padding: 0 14px 0 16px;
-  border: 1.5px solid var(--ink);
-  border-radius: var(--r-lg);
-  background: var(--raise);
-  box-shadow: 0 0 0 4px rgb(255 194 31 / .55), var(--shadow-hud);
-  color: var(--ink);
-  font-weight: 400;
-  line-height: 1.3;
-  text-align: left;
-  animation: ask-in .5s var(--spring) both, ask-breathe 2.6s var(--ease) .6s 3;
-}
-.size-ask[hidden] { display: none; }
-.stage-col .size-ask:hover:not(:disabled) { border-color: var(--ink); background: #fff; color: var(--ink); }
-.size-ask:active:not(:disabled) { transform: translateY(1px); }
-.size-ask-mark { width: 20px; height: 20px; color: var(--ink); }
-.size-ask-text { display: grid; gap: 3px; flex: 1; min-width: 0; }
-.size-ask-text strong { color: var(--ink); font-size: 16px; font-weight: 650; letter-spacing: -.02em; }
-.size-ask-how, .size-ask-touch { overflow: hidden; color: var(--ink-3); font-size: 12.5px; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
-.size-ask-touch { display: none; }
-.size-ask-key { border-color: var(--saffron); background: var(--saffron); color: var(--ink); font-weight: 600; }
-@keyframes ask-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
-@keyframes ask-breathe {
-  0%, 100% { box-shadow: 0 0 0 4px rgb(255 194 31 / .55), var(--shadow-hud); }
-  50%      { box-shadow: 0 0 0 9px rgb(255 194 31 / .25), var(--shadow-hud); }
-}
-@media (hover: none) {
-  .size-ask-how, .size-ask-key { display: none; }
-  .size-ask-touch { display: block; }
-}
-
 /* ---- the stage's foot: the crop's facts left, the zoom driving it right ---- */
 
 .stage-foot {
@@ -1818,7 +1773,6 @@ body.dragging .ct-empty { background-color: rgb(255 194 31 / .05); }
   .picker-door { min-height: 88px; }
   .picker-search { margin: 10px 10px 0; }
   .picker-input { font-size: 18px; }
-  .stage-col .size-ask { min-height: 52px; margin: 4px 0 2px; }
   .empty .empty-drop { font-size: 34px; }
   .picker:not(.is-custom, .is-naming) .picker-foot { display: none; }
   .picker-input { min-height: 52px; }

@@ -243,7 +243,6 @@ function syncStageChrome(): void {
   $('#modeConvert').setAttribute('aria-selected', String(room === 'convert'));
   $('#modeBatch').setAttribute('aria-selected', String(batching));
   syncFramingChrome();
-  syncSizeAsk();
 }
 
 // ---- framing a batch -------------------------------------------------------
@@ -654,7 +653,7 @@ async function endLoading(generation: number, success: boolean): Promise<void> {
   // focused, and typing "facebook cover" is the next thing you do. Closing it
   // leaves the stage's prompt as the way back. Batch asks through its own card,
   // and once a size is chosen later images keep it and nothing pops up.
-  if (success && !$('#sizeAsk').hidden && $('#coach').hidden && !sizePicker.isOpen()) sizePicker.open();
+  if (success && sizeUnanswered() && $('#coach').hidden && !sizePicker.isOpen()) sizePicker.open();
 }
 
 // Every way an image can arrive — drop, paste, file picker — comes through
@@ -1196,16 +1195,15 @@ function applyFreeformSize(w: number, h: number): void {
 // so an unanswered question nags instead of blocking.
 let sizeChosen = false;
 
-// The stage's "Where's it going?" prompt. It stands in the crop room from the
-// moment a picture arrives until a size has been chosen, and never elsewhere:
-// Batch asks the same question through its own card (DEC-04), and Adjust and
-// Convert are not about the size at all.
-function syncSizeAsk(): void {
-  $('#sizeAsk').hidden = !(hasImage && !loadingActive && !sizeChosen && !isFreeform() && room === 'crop');
+// The size question is still open: a picture is in the crop room and nothing
+// has answered it. That is when the picker opens by itself after a drop, and
+// when a typed letter starts the search instead of acting as a shortcut. Batch
+// asks through its own card (DEC-04); Adjust and Convert are not about size.
+function sizeUnanswered(): boolean {
+  return hasImage && !loadingActive && !sizeChosen && !isFreeform() && room === 'crop';
 }
 
 function syncSizeConfidence(): void {
-  syncSizeAsk();
   // In Freeform the size is not unsettled, it is superseded — and the way out
   // is the control itself, so that is what the line says.
   const freeform = isFreeform();
@@ -1488,10 +1486,10 @@ document.addEventListener('keydown', (e) => {
   // job is a labelled button on the stage, deliberately not a letter to learn.
   if (!framingRoom()) return;
 
-  // "Drop an image, type where it's going." While the stage is still asking,
-  // a letter is the start of that answer rather than a shortcut, so it opens
-  // the size search with the letter already in it.
-  if (!$('#sizeAsk').hidden && !e.altKey && e.key.length === 1 && /\S/.test(e.key)) {
+  // "Drop an image, type where it's going." While the size is unanswered, a
+  // letter is the start of that answer rather than a shortcut, so it opens the
+  // size search with the letter already in it.
+  if (sizeUnanswered() && !e.altKey && e.key.length === 1 && /\S/.test(e.key)) {
     e.preventDefault();
     sizePicker.open({ query: e.key });
     return;
@@ -1544,7 +1542,6 @@ for (const option of $$<HTMLButtonElement>('#viewMode [role="radio"]')) {
 $('#freeform').addEventListener('click', () => setFreeform(!isFreeform()));
 // The size question, asked from the top bar as well as from the panel.
 $('#sizeChip').addEventListener('click', () => sizePicker.open());
-$('#sizeAsk').addEventListener('click', () => sizePicker.open());
 // A live pixel count you cannot touch is a number that looks like a field and
 // is not one. In Freeform the crop's size *is* the output size, so tapping it
 // asks the only question it could be asking: make this an exact size instead.
