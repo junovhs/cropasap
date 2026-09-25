@@ -119,9 +119,23 @@ answered it in pixels only — the preset's own name was hidden from sight.
 
 - **The card says the answer out loud:** the name ("Instagram · Portrait post"),
   the pixels as the hero figure, the ratio, and a live swatch of the shape.
-- **The picker is a palette, not a form.** The search box is the head of it.
-  Before anything is typed, the home is a strip of shapes drawn to proportion —
-  this image, custom, 1:1, 4:5, 16:9, 9:16 — then a mono filter bar for the
-  catalogue (no rainbow icons), then your pinned, saved and recent sizes as
-  rows. Choosing is one click; Cancel and Apply only appear when a form needs
-  submitting. Ctrl+K opens it from anywhere.
+- **The picker is a palette, not a form.** A big search field is the head of
+  it, ringed in the accent, with example searches under it ("Facebook cover",
+  "A4"…). Then six large doors into the catalogue, each naming the platforms
+  behind it. Shapes, this image and a custom size are a compact second row.
+  Recents are not shown on the home: a size worth returning to is pinned or
+  saved. Choosing is one click; Cancel and Apply only appear when a form needs
+  submitting. Ctrl+K or / opens it from anywhere.
+
+## The first-run journey (UX-34)
+
+"Drop an image, type where it's going" is taken literally, step by step:
+
+1. **Drag in:** the moment a file is held over the empty stage, the crop marks
+   snap inward, the light box warms, and the words become "Let go to open it".
+2. **Loaded:** until a size is chosen, the stage asks "Where's it going?" on a
+   row of its own above the picture. Typing a letter with nothing else focused
+   opens the search with that letter in it, so drop → type "facebook cover" →
+   Enter is the whole job. It disappears once a size is chosen, and it never
+   covers the picture.
+3. **Choose:** the palette above.

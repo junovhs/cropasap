@@ -17,6 +17,8 @@ const RECENTS_KEY = 'cropasap.recents';
 // Written before the rename to CropASAP; read once so recents survive it.
 const LEGACY_RECENTS_KEY = 'cropwizard.recents';
 const MAX_RECENTS = 5;
+// The palette's example searches: the jobs people most often arrive with.
+const SUGGESTIONS = ['Facebook cover', 'Instagram post', 'Instagram story', 'YouTube thumbnail', 'LinkedIn banner', 'A4'];
 
 /** A size waiting to be told what it is called, so it can go on the top bar. */
 type NamingState = Dimensions;
@@ -61,6 +63,11 @@ export interface SizePickerOpenOptions {
   /** Omit image-derived choices while its preview is still being prepared. */
   readonly includeTemplate?: boolean;
   readonly onClose?: () => void;
+  /**
+   * Text already typed. The stage asks "where is it going?" and lets you just
+   * start typing; those letters arrive here and the palette opens mid-search.
+   */
+  readonly query?: string;
 }
 
 const loadRecents = (): string[] => {
@@ -262,8 +269,8 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
   function shapeSwatch(w: number, h: number): HTMLSpanElement {
     const shape = swatch(w, h);
     shape.classList.add('picker-tile-shape');
-    shape.style.width = `${parseFloat(shape.style.width) * 2.2}px`;
-    shape.style.height = `${parseFloat(shape.style.height) * 2.2}px`;
+    shape.style.width = `${parseFloat(shape.style.width) * 0.9}px`;
+    shape.style.height = `${parseFloat(shape.style.height) * 0.9}px`;
     return shape;
   }
 
@@ -309,11 +316,11 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
     const blank = document.createElement('span');
     blank.className = 'picker-tile-shape picker-tile-plus';
     blank.textContent = '+';
-    grid.append(actionTile('Custom', 'Any shape', 'W × H', blank, openCustom));
+    grid.append(actionTile('Custom', 'Exact pixels', 'W × H', blank, openCustom));
   }
 
   function renderChips(): void {
-    list.append(heading('Browse by where it’s going'));
+    list.append(heading('Where it’s going'));
     const chips = document.createElement('div');
     chips.className = 'picker-chips';
     for (const entry of CATEGORIES) {
@@ -334,6 +341,65 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
       chips.append(chip);
     }
     list.append(chips);
+  }
+
+  // The home's main doors: big enough to be obviously the thing to press, and
+  // each says which platforms are behind it so nobody has to guess whether
+  // "Facebook cover" lives under Social or Ads.
+  function renderCategoryCards(): void {
+    list.append(heading('Or browse by where it’s going'));
+    const grid = document.createElement('div');
+    grid.className = 'picker-doors';
+    for (const entry of CATEGORIES) {
+      const door = document.createElement('button');
+      door.type = 'button';
+      door.className = `picker-door is-${entry.id}`;
+      const mark = document.createElement('span');
+      mark.className = 'picker-door-mark';
+      mark.append(icon(entry.icon));
+      const text = document.createElement('span');
+      text.className = 'picker-door-text';
+      const name = document.createElement('strong');
+      name.textContent = entry.label;
+      const examples = document.createElement('span');
+      examples.textContent = entry.groups.slice(0, 4).join(' · ');
+      text.append(name, examples);
+      door.append(mark, text);
+      door.addEventListener('click', () => {
+        category = entry;
+        cursor = 0;
+        render();
+        list.scrollTop = 0;
+        if (!matchMedia('(pointer: coarse)').matches) input.focus();
+      });
+      grid.append(door);
+    }
+    list.append(grid);
+  }
+
+  // What people most often came here to make, as searches you can press. The
+  // field says "type"; these say what typing looks like.
+  function renderSuggestions(): void {
+    const row = document.createElement('div');
+    row.className = 'picker-try';
+    const label = document.createElement('span');
+    label.className = 'picker-try-label';
+    label.textContent = 'Try';
+    row.append(label);
+    for (const query of SUGGESTIONS) {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'picker-try-chip';
+      chip.textContent = query;
+      chip.addEventListener('click', () => {
+        input.value = query;
+        cursor = 0;
+        render();
+        input.focus();
+      });
+      row.append(chip);
+    }
+    list.append(row);
   }
 
   function tile(result: SizeResult, index: number): HTMLElement {
@@ -527,7 +593,10 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
       renderChips();
       rows = browse(category);
     } else {
-      rows = [...formatRows(), ...search('', recents, saved, template, pins)];
+      // Recents stay out of the home: a size worth coming back to is one you
+      // pin or save, and a list of whatever you last clicked is noise between
+      // you and the search. They still rank typed results.
+      rows = [...formatRows(), ...search('', [], saved, template, pins)];
     }
     cursor = Math.min(cursor, Math.max(0, rows.length - 1));
 
@@ -543,7 +612,9 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
     // always the first entries — so the loop below starts after them.
     let first = 0;
     if (!typed && !category) {
-      list.append(heading('Start from a shape'));
+      renderSuggestions();
+      renderCategoryCards();
+      list.append(heading('Or start from a shape'));
       const grid = document.createElement('div');
       grid.className = 'picker-formats';
       appendActionTiles(grid);
@@ -552,7 +623,6 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
         first += 1;
       }
       list.append(grid);
-      renderChips();
     }
 
     let section: string | null = null;
@@ -723,8 +793,13 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
     naming = null;
     custom = null;
     category = null;
-    // Opened on the home, not on whatever was typed last time.
-    input.value = '';
+    // Opened on the home, not on whatever was typed last time — unless the
+    // opening itself was someone starting to type.
+    input.value = openOptions.query ?? '';
+    // The full prompt is a sentence a phone's field cannot hold.
+    input.placeholder = matchMedia('(max-width: 900px)').matches
+      ? 'Where’s it going?'
+      : 'Where’s it going? Or type 1200x630';
     saved = loadSaved();
     pins = loadPinned();
     template = openOptions.includeTemplate === false ? null : getTemplate?.() ?? null;
@@ -733,7 +808,10 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
     // On a touch screen, focusing the field throws up the keyboard and takes
     // half the list with it — before anyone has had a chance to look at what is
     // on offer. Typing is one tap away; seeing the list should not be.
-    if (!matchMedia('(pointer: coarse)').matches) {
+    if (openOptions.query) {
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+    } else if (!matchMedia('(pointer: coarse)').matches) {
       input.select();
       input.focus();
     }
