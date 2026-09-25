@@ -649,6 +649,12 @@ async function endLoading(generation: number, success: boolean): Promise<void> {
   $('#loading').hidden = true;
   $('#emptyDefault').hidden = hasImage;
   syncStageChrome();
+  // The picture has arrived and the size is still unanswered, so the question
+  // is asked at once rather than waiting behind a click: the search opens,
+  // focused, and typing "facebook cover" is the next thing you do. Closing it
+  // leaves the stage's prompt as the way back. Batch asks through its own card,
+  // and once a size is chosen later images keep it and nothing pops up.
+  if (success && !$('#sizeAsk').hidden && $('#coach').hidden && !sizePicker.isOpen()) sizePicker.open();
 }
 
 // Every way an image can arrive — drop, paste, file picker — comes through
