@@ -306,15 +306,19 @@
     <div class="panel-body" data-room="crop">
     <section class="block">
       <h2>Output size</h2>
-      <!-- The same chip the top bar shows on a phone, grown up: a crop mark and
-           the pixels, nothing else. The preset's name still reaches a screen
-           reader; sighted readers get it from the picker. -->
-      <button id="sizeButton" class="size-button" type="button" aria-haspopup="dialog">
+      <!-- The answer to the app's one question, said out loud: the size's name,
+           its pixels as the hero figure, its shape as a swatch and a ratio.
+           The whole card is the way to change it (Ctrl K from anywhere). -->
+      <button id="sizeButton" class="size-button" type="button" aria-haspopup="dialog"
+        aria-keyshortcuts="Control+K">
         <span id="sizeSwatch" class="swatch" aria-hidden="true"></span>
-        <span class="icon" data-icon="crop" aria-hidden="true"></span>
         <span class="size-text">
-          <strong id="sizeName" class="visually-hidden">Square post</strong>
+          <strong id="sizeName">Square post</strong>
           <span id="sizeDims">1080 × 1080</span>
+        </span>
+        <span class="size-meta" aria-hidden="true">
+          <span id="sizeRatio" class="size-ratio">1:1</span>
+          <kbd class="size-key">Ctrl K</kbd>
         </span>
       </button>
       <p id="sizeNote" class="note" hidden>Search by name, pixels or shape.</p>
@@ -435,6 +439,9 @@
 
 <div id="picker" class="picker" hidden role="dialog" aria-modal="true" aria-labelledby="pickerTitle">
   <div class="picker-panel">
+    <!-- The title only speaks in the modes where it carries news (a custom
+         size, naming a pin). On the home and in search the field is the head:
+         a palette asks its question with a cursor, not a heading. -->
     <div class="picker-head">
       <div class="picker-titles">
         <h2 id="pickerTitle">Choose a size</h2>
@@ -446,7 +453,8 @@
       <span class="icon picker-mark" data-icon="search"></span>
       <input id="pickerInput" class="picker-input" type="text" autocomplete="off" spellcheck="false"
         role="combobox" aria-expanded="true" aria-controls="pickerList" aria-autocomplete="list"
-        aria-label="Search sizes" placeholder="Search sizes, platforms, or use cases…">
+        aria-label="Search sizes" placeholder="Where’s it going? Or type 1200x630">
+      <button class="ghost picker-dismiss" type="button" data-picker-close aria-label="Close"><kbd>esc</kbd><span class="icon" data-icon="x"></span></button>
     </div>
     <div id="pickerList" class="picker-list" role="listbox" aria-label="Sizes"></div>
     <div class="picker-foot">

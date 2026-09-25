@@ -256,21 +256,37 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
 
   // ---- the home ------------------------------------------------------------
 
-  function card(name: string, detail: string, mark: Node, onRun: () => void): HTMLButtonElement {
-    const el = document.createElement('button');
-    el.type = 'button';
-    el.className = 'picker-card';
-    const glyph = document.createElement('span');
-    glyph.className = 'picker-card-mark';
-    glyph.append(mark);
+  // The home opens on shapes, not words: this image, a custom size, and the four
+  // shapes almost everything is, each drawn to its own proportion. You can see
+  // the answer before you can read it.
+  function shapeSwatch(w: number, h: number): HTMLSpanElement {
+    const shape = swatch(w, h);
+    shape.classList.add('picker-tile-shape');
+    shape.style.width = `${parseFloat(shape.style.width) * 2.2}px`;
+    shape.style.height = `${parseFloat(shape.style.height) * 2.2}px`;
+    return shape;
+  }
+
+  function tileText(name: string, detail: string, dims: string): HTMLSpanElement {
     const text = document.createElement('span');
-    text.className = 'picker-card-text';
+    text.className = 'picker-tile-text';
     const strong = document.createElement('strong');
     strong.textContent = name;
-    const span = document.createElement('span');
-    span.textContent = detail;
-    text.append(strong, span);
-    el.append(glyph, text);
+    const small = document.createElement('span');
+    small.textContent = detail;
+    const pixels = document.createElement('span');
+    pixels.className = 'picker-tile-dims';
+    pixels.textContent = dims;
+    text.append(strong, small, pixels);
+    return text;
+  }
+
+  /** A door on the shape strip that does something rather than being a size. */
+  function actionTile(name: string, detail: string, dims: string, shape: HTMLElement, onRun: () => void): HTMLButtonElement {
+    const el = document.createElement('button');
+    el.type = 'button';
+    el.className = 'picker-tile is-action';
+    el.append(shape, tileText(name, detail, dims));
     el.addEventListener('click', onRun);
     return el;
   }
@@ -282,22 +298,22 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
     return el;
   }
 
-  function renderCards(): void {
-    const cards = document.createElement('div');
-    cards.className = 'picker-cards';
+  function appendActionTiles(grid: HTMLElement): void {
     if (template) {
       const { w, h } = template;
-      cards.append(card('Match this image', `${w} × ${h}`, icon('image'), () => {
+      grid.append(actionTile('This image', ratioLabel(w, h), `${w} × ${h}`, shapeSwatch(w, h), () => {
         close();
         onPick({ kind: 'template', key: 'template', name: 'Match this image', detail: 'Its own pixel size', w, h });
       }));
     }
-    cards.append(card('Custom size', 'Set exact dimensions', icon('maximize'), openCustom));
-    list.append(cards);
+    const blank = document.createElement('span');
+    blank.className = 'picker-tile-shape picker-tile-plus';
+    blank.textContent = '+';
+    grid.append(actionTile('Custom', 'Any shape', 'W × H', blank, openCustom));
   }
 
   function renderChips(): void {
-    list.append(heading('Browse presets'));
+    list.append(heading('Browse by where it’s going'));
     const chips = document.createElement('div');
     chips.className = 'picker-chips';
     for (const entry of CATEGORIES) {
@@ -327,22 +343,7 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
     el.setAttribute('role', 'option');
     el.setAttribute('aria-selected', String(index === cursor));
     el.dataset.index = String(index);
-    const shape = swatch(result.w, result.h);
-    shape.classList.add('picker-tile-shape');
-    // The home tile is a picture of the shape, twice the size of a row's.
-    shape.style.width = `${parseFloat(shape.style.width) * 2.4}px`;
-    shape.style.height = `${parseFloat(shape.style.height) * 2.4}px`;
-    const text = document.createElement('span');
-    text.className = 'picker-tile-text';
-    const name = document.createElement('strong');
-    name.textContent = result.name;
-    const ratio = document.createElement('span');
-    ratio.textContent = result.detail;
-    const dims = document.createElement('span');
-    dims.className = 'picker-tile-dims';
-    dims.textContent = `${result.w} × ${result.h}`;
-    text.append(name, ratio, dims);
-    el.append(shape, text);
+    el.append(shapeSwatch(result.w, result.h), tileText(result.name, result.detail, `${result.w} × ${result.h}`));
     const held = isPinned(pins, result.w, result.h);
     el.append(rowAction(
       held ? 'Unpin from the top bar' : 'Pin to the top bar',
@@ -470,6 +471,17 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
       }
       readout();
     });
+    // A form with two fields submits on Enter only if it holds a submit button,
+    // so it holds one. Without it "Press Enter to apply" was a promise the
+    // keyboard could not keep, and only the footer's Apply worked.
+    const submit = document.createElement('button');
+    submit.type = 'submit';
+    submit.className = 'picker-custom-submit';
+    submit.tabIndex = -1;
+    submit.setAttribute('aria-hidden', 'true');
+    submit.textContent = 'Apply';
+    form.append(submit);
+
     const back = document.createElement('button');
     back.type = 'button';
     back.className = 'account-link picker-custom-back';
@@ -493,6 +505,7 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
     if (applyButton) applyButton.disabled = false;
     if (searchBox) searchBox.hidden = Boolean(custom);
     root.classList.toggle('is-custom', Boolean(custom));
+    root.classList.toggle('is-naming', Boolean(naming));
     if (naming) {
       setHead('Name this size', 'It goes on the top bar under that name.');
       renderNaming();
@@ -514,8 +527,6 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
       renderChips();
       rows = browse(category);
     } else {
-      renderCards();
-      renderChips();
       rows = [...formatRows(), ...search('', recents, saved, template, pins)];
     }
     cursor = Math.min(cursor, Math.max(0, rows.length - 1));
@@ -532,14 +543,16 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
     // always the first entries — so the loop below starts after them.
     let first = 0;
     if (!typed && !category) {
-      list.append(heading('Common formats'));
+      list.append(heading('Start from a shape'));
       const grid = document.createElement('div');
       grid.className = 'picker-formats';
+      appendActionTiles(grid);
       while (first < rows.length && rows[first]?.kind === 'format') {
         grid.append(tile(rows[first] as SizeResult, first));
         first += 1;
       }
       list.append(grid);
+      renderChips();
     }
 
     let section: string | null = null;
@@ -796,7 +809,9 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
     else if (category) { category = null; cursor = 0; render(); input.focus(); }
     else close();
   });
-  root.querySelector<HTMLButtonElement>('#pickerClose')?.addEventListener('click', () => close());
+  for (const button of root.querySelectorAll<HTMLButtonElement>('#pickerClose, [data-picker-close]')) {
+    button.addEventListener('click', () => close());
+  }
   root.querySelector<HTMLButtonElement>('#pickerCancel')?.addEventListener('click', () => close());
   applyButton?.addEventListener('click', () => {
     if (custom) applyCustom();

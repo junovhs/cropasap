@@ -6,6 +6,7 @@ import { store, createItem, activeItem } from './state.js';
 import { alphaOf } from './infrastructure/alpha.js';
 import { createViewfinder, type FrameView } from './viewfinder.js';
 import { createSizePicker } from './sizepicker.js';
+import { ratioLabel } from './search.js';
 import { createFilmstrip } from './filmstrip.js';
 import { scaledTarget } from './export.js';
 import { createAdjustPanel, neutral } from './adjust.js';
@@ -141,6 +142,7 @@ function updateReadout(framing: Framing | null): void {
     $('#cropSize').textContent = `${w} × ${h}`;
     $('#sizeName').textContent = FREEFORM_LABEL;
     $('#sizeDims').textContent = `${w} × ${h}`;
+    $('#sizeRatio').textContent = w > 0 && h > 0 ? ratioLabel(w, h) : '';
   }
 
   // How much real detail is behind each output pixel. Below 1.0 we are
@@ -1027,8 +1029,12 @@ interface TargetSelection { readonly w: number; readonly h: number; readonly nam
 // What the panel says about the chosen size. Split out of applyTarget because
 // undo restores a target that was never re-applied — it only has to be shown.
 function showTarget(target: OutputTarget): void {
+  // The card answers the size question out loud: what it is called, the pixels,
+  // and the shape they make. The name used to be read only by screen readers,
+  // which left sighted people to recognise "1200 × 627" as a LinkedIn post.
   $('#sizeName').textContent = target.label;
   $('#sizeDims').textContent = `${target.w} × ${target.h}`;
+  $('#sizeRatio').textContent = ratioLabel(target.w, target.h);
   // The top bar's compact half of the same control.
   $('#sizeChipDims').textContent = `${target.w} × ${target.h}`;
   // Mirror the frame's shape in the panel chip.
@@ -1533,6 +1539,10 @@ $('#modeBatch').addEventListener('click', () => goTo('batch'));
 // ---- boot ------------------------------------------------------------------
 
 paintIcons();
+// The size card's shortcut, in the words of the keyboard in front of you.
+if (/Mac|iPhone|iPad/.test(navigator.platform)) {
+  for (const key of $$<HTMLElement>('.size-key')) key.textContent = '⌘K';
+}
 renderPins();
 setChromeVisible(false);
 syncFreeformChrome();

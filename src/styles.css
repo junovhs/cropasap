@@ -893,10 +893,16 @@ body.is-framing .stage-col .thumb:not(.is-active):hover { opacity: .85; }
 }
 .size-button:hover:not(:disabled) { border-color: var(--ink); color: var(--ink); }
 .size-button > .icon { display: none; }
-.size-text { display: grid; flex: 1; min-width: 0; gap: 4px; }
+.size-text { display: grid; flex: 1; min-width: 0; gap: 5px; }
 .size-text strong { overflow: hidden; color: var(--ink-2); font-size: 12px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
 .size-text span { color: var(--ink); font: 500 21px/1 var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
 .size-chevron { width: 14px; height: 14px; color: var(--ink-4); }
+/* The shape's ratio, and the way back to this question from anywhere. */
+.size-meta { display: grid; justify-items: end; align-self: stretch; align-content: space-between; gap: 6px; }
+.size-ratio { color: var(--ink-3); font: 500 11px/1 var(--font-mono); font-variant-numeric: tabular-nums; }
+.size-key { opacity: 0; transition: opacity var(--t); }
+.size-button:hover .size-key, .size-button:focus-visible .size-key { opacity: 1; }
+@media (hover: none) { .size-key { display: none; } }
 
 /* The shape of the answer, drawn to proportion; transitions make a size change
    feel like a change of shape. */
@@ -937,7 +943,9 @@ body.is-framing .stage-col .thumb:not(.is-active):hover { opacity: .85; }
   font-variant-numeric: tabular-nums;
   -moz-appearance: textfield;
 }
-.manual-size-row input::-webkit-inner-spin-button, .manual-size-row input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+:is(.manual-size-row, .picker-custom) input::-webkit-inner-spin-button,
+:is(.manual-size-row, .picker-custom) input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.picker-custom input { -moz-appearance: textfield; }
 .manual-size-row input:focus { outline: none; border-color: var(--ink); background: var(--raise); box-shadow: 0 0 0 1px var(--ink); }
 .manual-size-lock { width: 28px; min-height: 30px; padding: 0; color: var(--ink-4); }
 .manual-size-lock .icon { width: 14px; height: 14px; }
@@ -1095,55 +1103,39 @@ body.is-adjusting .rail { display: flex; }
   max-height: 100%;
   overflow: hidden;
 }
-.picker-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 12px 10px 18px; }
+.picker-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 12px 12px 18px; border-bottom: 1px solid var(--line); }
+/* On the home and in search, the field is the head. */
+.picker:not(.is-custom, .is-naming) .picker-head { display: none; }
 .picker-titles h2 { margin: 0; color: var(--ink); font-size: 15px; font-weight: 600; letter-spacing: -.015em; }
 .picker-titles p { margin: 2px 0 0; color: var(--ink-3); font-size: 12px; }
 .picker-close { width: 28px; min-height: 28px; padding: 0; }
 .picker-close .icon { width: 16px; height: 16px; }
 
 .picker-search {
-  display: flex; align-items: center; gap: 10px;
-  margin: 0 12px 12px;
-  padding: 0 12px;
-  border: 1px solid var(--edge);
-  border-radius: var(--r);
-  background: var(--raise);
+  display: flex; align-items: center; gap: 12px;
+  padding: 0 10px 0 18px;
+  border-bottom: 1px solid var(--line);
 }
 .picker-search[hidden] { display: none; }
-.picker-search:focus-within { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
-.picker-mark { width: 16px; height: 16px; color: var(--ink-3); }
+.picker-mark { width: 17px; height: 17px; color: var(--ink-3); }
 .picker-input {
   width: 100%;
-  min-height: 42px;
+  min-height: 56px;
   padding: 0;
   border: 0;
   background: transparent;
   color: var(--ink);
-  font-size: 15px; font-weight: 500;
+  font-size: 16px; font-weight: 500; letter-spacing: -.01em;
   outline: none;
 }
+.picker-dismiss { flex: 0 0 auto; min-height: 28px; padding: 0 4px; }
+.picker-dismiss .icon { display: none; width: 16px; height: 16px; }
+@media (hover: none) { .picker-dismiss kbd { display: none; } .picker-dismiss .icon { display: inline-flex; } }
 .picker-input::placeholder { color: var(--ink-4); font-weight: 400; }
 
-.picker-list { overflow-y: auto; padding: 4px 12px 12px; border-top: 1px solid var(--line); scrollbar-width: thin; }
+.picker-list { overflow-y: auto; padding: 4px 12px 14px; scrollbar-width: thin; }
 .picker-heading, .picker-section { margin: 14px 2px 8px; color: var(--ink-3); }
 .picker-section { margin: 12px 8px 4px; }
-
-.picker-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 6px; margin-top: 10px; }
-.picker-card {
-  justify-content: flex-start;
-  gap: 10px;
-  min-height: 50px;
-  padding: 8px 12px 8px 8px;
-  border-color: var(--line-2);
-  border-radius: var(--r);
-  text-align: left;
-}
-.picker-card:hover:not(:disabled) { border-color: var(--ink); }
-.picker-card-mark { display: grid; place-items: center; flex: 0 0 auto; width: 32px; height: 32px; border-radius: var(--r-xs); background: var(--sunk); color: var(--ink); }
-.picker-card-mark .icon, .picker-card-mark svg { width: 17px; height: 17px; }
-.picker-card-text { display: grid; gap: 3px; min-width: 0; }
-.picker-card-text strong { color: var(--ink); font-size: 13px; font-weight: 600; }
-.picker-card-text span { color: var(--ink-3); font: 11px var(--font-mono); }
 
 /* The catalogue's doors: a filter bar, monochrome. Colour-coded icons made the
    row a toy box; the words are what people scan for. */
@@ -1163,15 +1155,15 @@ body.is-adjusting .rail { display: flex; }
 .picker-chip[aria-pressed="true"], .picker-chip[aria-pressed="true"]:hover:not(:disabled) { border-color: var(--ink); background: var(--ink); color: var(--page); }
 .picker-chip[aria-pressed="true"] svg { color: var(--page); }
 
-.picker-formats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.picker-formats { display: grid; grid-template-columns: repeat(auto-fit, minmax(88px, 1fr)); gap: 6px; }
 .picker-tile {
   position: relative;
   display: grid;
   justify-items: center;
   align-content: end;
   gap: 8px;
-  min-height: 124px;
-  padding: 14px 8px 10px;
+  min-height: 118px;
+  padding: 12px 6px 10px;
   border: 1px solid var(--line-2);
   border-radius: var(--r);
   background: var(--raise);
@@ -1182,6 +1174,19 @@ body.is-adjusting .rail { display: flex; }
 .picker-tile:hover { border-color: var(--edge); }
 .picker-tile[aria-selected="true"] { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
 .picker-tile-shape { align-self: center; margin: auto 0 2px; }
+/* The two tiles that act rather than choose: this image, and a size of your own. */
+.picker-tile.is-action { min-height: 118px; color: var(--ink); font-weight: 400; line-height: 1.5; }
+.picker-tile.is-action:hover:not(:disabled) { border-color: var(--ink); }
+.picker-tile.is-action .swatch { border-color: var(--ink-3); background: transparent; }
+.picker-tile-plus {
+  display: grid; place-items: center;
+  width: 40px; height: 40px;
+  border: 1.5px dashed var(--ink-3);
+  border-radius: 1px;
+  color: var(--ink-3);
+  font: 400 20px/1 var(--font-mono);
+}
+.picker-tile.is-action:hover .picker-tile-plus { border-color: var(--ink); color: var(--ink); }
 .picker-tile-text { display: grid; gap: 2px; min-width: 0; }
 .picker-tile-text strong { color: var(--ink); font-size: 12.5px; font-weight: 600; }
 .picker-tile-text span { color: var(--ink-3); font: 10.5px var(--font-mono); }
@@ -1261,6 +1266,8 @@ button.picker-ratio:hover:not(:disabled) { border-color: var(--ink); background:
 .picker-custom-lock[aria-pressed="true"] { color: var(--ink); background: var(--sunk); }
 .picker-custom-note { grid-column: 1 / -1; margin: 6px 0 0; color: var(--ink-3); font: 11.5px var(--font-mono); }
 .picker-custom-back { grid-column: 1 / -1; justify-self: start; margin-top: 4px; }
+/* Present so Enter submits the form; the footer's Apply is the visible one. */
+.picker-custom-submit { position: absolute; width: 1px; height: 1px; min-height: 0; padding: 0; overflow: hidden; clip: rect(0 0 0 0); border: 0; }
 
 .picker-foot {
   display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
@@ -1275,6 +1282,9 @@ button.picker-ratio:hover:not(:disabled) { border-color: var(--ink); background:
 .picker-foot kbd { margin-right: 2px; }
 .picker-foot span[hidden] { display: none; }
 .picker-actions { display: flex; gap: 6px; margin-left: auto; }
+/* Choosing is one click, so Cancel and Apply only appear when a form needs
+   submitting: a custom size, or a name for a pin. */
+.picker:not(.is-custom, .is-naming) .picker-actions { display: none; }
 .picker-actions button { min-height: 30px; padding: 0 14px; }
 
 /* ---- the batch explainer ---- */
@@ -1746,7 +1756,9 @@ body.dragging .ct-empty { background-color: rgb(255 194 31 / .05); }
   .picker-keys { display: none; }
   .picker-actions { width: 100%; }
   .picker-actions button { flex: 1; min-height: 44px; }
-  .picker-formats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .picker-formats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .picker:not(.is-custom, .is-naming) .picker-foot { display: none; }
+  .picker-input { min-height: 52px; }
   .picker-row { min-height: 48px; }
 
   .convert-table { inset: 0; }
@@ -1777,8 +1789,16 @@ body.dragging .ct-empty { background-color: rgb(255 194 31 / .05); }
   .sheet-open { padding: 0 12px; }
 }
 
-/* Coarse pointers never hover, so hover-revealed row actions show outright. */
-@media (hover: none) { .row-action { opacity: 1; } }
+/* Coarse pointers never hover, so hover-revealed row actions show outright.
+   The ratio chip, though, is a mouse shortcut ("this shape, my pixels"): under a
+   finger it sits mid-row and a tap meant for the row would land on it and pick a
+   different size. On touch it is a label, and the tap belongs to the row. */
+@media (hover: none) {
+  .row-action { opacity: 1; }
+  button.picker-ratio { pointer-events: none; }
+  /* A pin on every shape tile is six icons for a rare act; the rows keep theirs. */
+  .picker-tile .row-action:not(.is-on) { display: none; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: .001ms !important; animation-duration: .001ms !important; animation-iteration-count: 1 !important; }
