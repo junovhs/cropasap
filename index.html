@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#ffffff">
+<meta name="theme-color" content="#edece8">
 <link rel="stylesheet" href="/docs/dopedocs.css">
 <link rel="stylesheet" href="/docs/docs-narrow.css">
 <title>CropASAP — the right crop, in seconds</title>
@@ -38,41 +38,40 @@
     </button>
   </div>
 
-  <!-- ---- left rail: the two jobs you can do to an image ---- -->
+  <!-- The rooms. They are the app's only real navigation, so they read as
+       navigation: a row of tabs in the top bar on a desktop, the bottom bar on a
+       phone. One element, placed by the grid, never written twice. Three rooms,
+       not two jobs and a switch — see main.ts for why (DEC-04 still holds: this
+       control is what turns batch off). -->
+  <nav id="mode" class="nav" role="tablist" aria-label="What to do">
+    <button id="modeCrop" class="nav-item" type="button" role="tab"
+      aria-selected="true" aria-controls="stage">
+      <span class="icon" data-icon="crop"></span>
+      <span class="nav-label">Crop<span class="nav-label-more"> &amp; Resize</span></span>
+    </button>
+    <button id="modeAdjust" class="nav-item" type="button" role="tab"
+      aria-selected="false" aria-controls="adjust">
+      <span class="icon" data-icon="sliders"></span>
+      <span class="nav-label">Adjust</span>
+    </button>
+    <!-- Convert is the job that does nothing to the picture. It sits with the
+         others because it is a thing you came here to do, not a setting on
+         the way out: the export panel changes the format of a crop, this
+         changes the format of a file. -->
+    <button id="modeConvert" class="nav-item" type="button" role="tab"
+      aria-selected="false" aria-controls="convertTable">
+      <span class="icon" data-icon="swap"></span>
+      <span class="nav-label">Convert</span>
+    </button>
+    <button id="modeBatch" class="nav-item" type="button" role="tab"
+      aria-selected="false" aria-controls="strip">
+      <span class="icon" data-icon="layers"></span>
+      <span class="nav-label">Batch</span>
+    </button>
+  </nav>
+
+  <!-- ---- left rail: the Adjust drawer, and the phone's Export button ---- -->
   <aside class="rail">
-    <!-- The two modes were stage-mounted tabs. They are the app's only real
-         navigation, so they read as navigation. -->
-    <!-- Three rooms, not two jobs and a switch. Batch used to be a flag laid
-         over the single-image workspace, and it leaked in every direction: the
-         queue appeared before any queue existed, stayed after you had left, and
-         leaving erased it. A room you are either in or not in cannot do any of
-         that (DEC-04 still holds — this control is what turns batch off). -->
-    <nav id="mode" class="nav" role="tablist" aria-label="What to do">
-      <button id="modeCrop" class="nav-item" type="button" role="tab"
-        aria-selected="true" aria-controls="stage">
-        <span class="icon" data-icon="crop"></span>
-        <span class="nav-label">Crop<span class="nav-label-more"> &amp; Resize</span></span>
-      </button>
-      <button id="modeAdjust" class="nav-item" type="button" role="tab"
-        aria-selected="false" aria-controls="adjust">
-        <span class="icon" data-icon="sliders"></span>
-        <span class="nav-label">Adjust</span>
-      </button>
-      <!-- Convert is the job that does nothing to the picture. It sits with the
-           others because it is a thing you came here to do, not a setting on
-           the way out: the export panel changes the format of a crop, this
-           changes the format of a file. -->
-      <button id="modeConvert" class="nav-item" type="button" role="tab"
-        aria-selected="false" aria-controls="convertTable">
-        <span class="icon" data-icon="swap"></span>
-        <span class="nav-label">Convert</span>
-      </button>
-      <button id="modeBatch" class="nav-item" type="button" role="tab"
-        aria-selected="false" aria-controls="strip">
-        <span class="icon" data-icon="layers"></span>
-        <span class="nav-label">Batch</span>
-      </button>
-    </nav>
 
     <!-- Adjust lives with the controls now, beneath the main jobs. On a phone
          the same section becomes a touch-sized drawer above the bottom bar. -->
@@ -85,16 +84,6 @@
       <div id="adjustRows" class="adjust-rows"></div>
       <p class="adjust-keep">Edits stay with this image and are written into the export.</p>
     </section>
-
-    <div class="rail-foot">
-      <!-- Two sentences about direct manipulation. They used to float over the
-           picture; down here they stop competing with it. -->
-      <div id="hints" class="hints" hidden>
-        <span class="hints-label">Need help?</span>
-        <span>Drag to move</span>
-        <span>Scroll to zoom</span>
-      </div>
-    </div>
 
     <!-- Mobile only: the right panel has nowhere to live, so it becomes a sheet. -->
     <label id="sheetOpen" class="sheet-open" for="panelToggle">
@@ -151,21 +140,6 @@
       <!-- Stage tools, top right: the two things that change what the frame is
            — whether it has a locked shape at all, and whether you are seeing it
            at its real size. -->
-        <div id="zoomTool" class="zoom-tool" hidden>
-          <!-- Sharpness is the consequence of the zoom, so it is stated on the
-               control that causes it: push in, watch it fall. Apart, they were
-               two numbers on the same screen with no visible connection. -->
-          <span id="qualityChip" class="chip zoom-quality good"><span class="quality-word">Quality </span><strong id="quality">—</strong></span>
-          <button id="zoomOut" class="zoom-step" type="button" aria-label="Zoom out" title="Zoom out">−</button>
-          <input id="zoomSlider" class="zoom-slider" type="range" min="0" max="1000" step="1" value="0"
-            aria-label="Zoom">
-          <button id="zoomIn" class="zoom-step" type="button" aria-label="Zoom in" title="Zoom in">+</button>
-          <span class="zoom-field">
-            <input id="zoomValue" class="zoom-value" type="text" inputmode="decimal" spellcheck="false"
-              value="100" aria-label="Zoom percentage">
-            <span class="zoom-unit" aria-hidden="true">%</span>
-          </span>
-        </div>
       <div class="stage-tools">
         <!-- Freeform belongs to the frame, so it lives with the frame. It
              overrides the size in the panel rather than replacing it, which is
@@ -202,8 +176,6 @@
           </button>
         </div>
       </div>
-
-
     </div>
     <section id="stage" class="stage" aria-label="Framing area">
       <canvas id="canvas" tabindex="0"
@@ -211,12 +183,15 @@
       <input id="file" type="file" accept="image/*" multiple hidden>
 
       <div id="empty" class="empty">
+        <!-- Four crop marks at the corners of the light box: the whole idea of the
+             app, drawn once, before there is anything to crop. -->
+        <span class="empty-marks" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
         <div id="emptyDefault" class="empty-inner">
-          <span class="empty-mark icon" data-icon="image"></span>
           <h1 id="emptyTitle">The right crop. Right now.</h1>
           <p id="emptyText">Drop an image, type where it’s going — like “Facebook cover” — and make it fit.</p>
           <button id="emptyAdd" class="primary" type="button"><span class="icon" data-icon="image"></span>Choose image</button>
-          <p class="empty-privacy">Free. No sign-up. Images stay in your browser.<br>More to crop? Drop several for a batch.</p>
+          <p class="empty-privacy"><span>Free</span><span>No sign-up</span><span>Never leaves your browser</span></p>
+          <p class="empty-batch-hint">More to crop? Drop several at once for a batch.</p>
         </div>
 
         <div id="loading" class="loading" role="status" aria-live="polite" hidden>
@@ -252,6 +227,9 @@
            long slider takes room from the chips instead of sitting on top of
            them. -->
       <div class="stage-foot">
+        <!-- Two phrases about direct manipulation, said once, quietly, in the
+             corner of the picture they describe. -->
+        <p id="hints" class="hints" hidden><span>Drag to move</span><span>Scroll to zoom</span></p>
         <div id="readout" class="readout" hidden>
           <!-- The crop's own pixel size is only news when it is also the file's
                pixel size. Against a chosen output size it is a number that
@@ -266,6 +244,21 @@
              wheel is a coarse instrument — the slider is logarithmic, so every
              step is the same proportion of what you are already at, and the
              field is there for the times you know the number you want. -->
+        <div id="zoomTool" class="zoom-tool" hidden>
+          <!-- Sharpness is the consequence of the zoom, so it is stated on the
+               control that causes it: push in, watch it fall. Apart, they were
+               two numbers on the same screen with no visible connection. -->
+          <span id="qualityChip" class="chip zoom-quality good"><span class="quality-word">Quality </span><strong id="quality">—</strong></span>
+          <button id="zoomOut" class="zoom-step" type="button" aria-label="Zoom out" title="Zoom out">−</button>
+          <input id="zoomSlider" class="zoom-slider" type="range" min="0" max="1000" step="1" value="0"
+            aria-label="Zoom">
+          <button id="zoomIn" class="zoom-step" type="button" aria-label="Zoom in" title="Zoom in">+</button>
+          <span class="zoom-field">
+            <input id="zoomValue" class="zoom-value" type="text" inputmode="decimal" spellcheck="false"
+              value="100" aria-label="Zoom percentage">
+            <span class="zoom-unit" aria-hidden="true">%</span>
+          </span>
+        </div>
 
       </div>
 

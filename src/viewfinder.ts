@@ -36,6 +36,13 @@ const GHOST_BEAT = 260;       // ms the lifted ghost holds after the frame lands
 const CHECKER_CELL = 12;                          // CSS px per checker square
 const CHECKER_LIGHT = ['#ffffff', '#d9dee6'];     // the design-app default
 const CHECKER_DARK = ['#8a8f99', '#6e737d'];      // ...and the one a light picture needs
+// The frame is drawn in the app's one accent, saffron (docs/design/voice.md).
+// A crop frame has to read over whatever is in the photograph, and the commonest
+// content — sky, water, foliage — is blue and green, where a blue frame vanished.
+// A thin dark halo under every stroke carries it over snow and white skies too.
+const FRAME = '#ffc21f';
+const FRAME_LIVE = '#ffd76a';       // the edge under the pointer, a step brighter
+const FRAME_HALO = 'rgba(0,0,0,0.55)';
 const FRAME_PAD = 76;         // most breathing room between frame and stage edge
 const FRAME_PAD_MIN = 22;     // ...and the least, once the stage is a phone
 const FRAME_PAD_SHARE = 0.085; // in between, a share of the smaller dimension
@@ -592,25 +599,14 @@ export function createViewfinder(
 
     // Locked, the frame is a boundary and not a control: a plain edge, no grips.
     if (locked) {
-      ctx.strokeStyle = '#0068f5';
-      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = FRAME_HALO;
+      ctx.lineWidth = 3;
+      ctx.strokeRect(f.x, f.y, f.w, f.h);
+      ctx.strokeStyle = FRAME;
+      ctx.lineWidth = 1;
       ctx.strokeRect(f.x, f.y, f.w, f.h);
       return;
     }
-
-    ctx.lineCap = 'square';
-    ctx.strokeStyle = '#0068f5';
-    ctx.lineWidth = 3.5;
-    ctx.strokeRect(f.x, f.y, f.w, f.h);
-    ctx.lineWidth = 5;
-    corners();
-
-    ctx.strokeStyle = '#0068f5';
-    ctx.lineWidth = 1.5;
-    ctx.strokeRect(f.x, f.y, f.w, f.h);
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 3;
-    corners();
 
     const mx = f.x + f.w / 2;
     const my = f.y + f.h / 2;
@@ -624,21 +620,31 @@ export function createViewfinder(
       ctx.stroke();
     };
 
-    ctx.strokeStyle = '#0068f5';
-    ctx.lineWidth = 5;
-    edgeBars();
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 3;
+    // Halo first, one pass under everything, so the saffron always has an edge.
+    ctx.lineCap = 'square';
+    ctx.strokeStyle = FRAME_HALO;
+    ctx.lineWidth = 3.5;
+    ctx.strokeRect(f.x, f.y, f.w, f.h);
+    ctx.lineWidth = 6;
+    corners();
     edgeBars();
 
-    // A tiny accent lift confirms which part of the frame is live without
-    // turning the crop into a selection marquee.
+    // Then the frame: a hairline edge, heavy corner brackets, short grips.
+    ctx.strokeStyle = FRAME;
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(f.x, f.y, f.w, f.h);
+    ctx.lineWidth = 3.5;
+    corners();
+    edgeBars();
+
+    // A tiny lift confirms which part of the frame is live without turning the
+    // crop into a selection marquee.
     // 'pan' is excluded by name, not by luck: it contains an "n" and would
     // otherwise light the north edge every time you dragged the picture.
     const active = dragging?.handle ?? hoverHandle;
     if (active && active !== 'move' && active !== 'pan') {
-      ctx.strokeStyle = '#0058d4';
-      ctx.lineWidth = 3;
+      ctx.strokeStyle = FRAME_LIVE;
+      ctx.lineWidth = 2.5;
       ctx.beginPath();
       if (active.includes('n')) { ctx.moveTo(f.x, f.y); ctx.lineTo(f.x + f.w, f.y); }
       if (active.includes('s')) { ctx.moveTo(f.x, f.y + f.h); ctx.lineTo(f.x + f.w, f.y + f.h); }

@@ -4,36 +4,36 @@
    Keep in step with the :root block in src/styles.css. */
 
 @font-face {
-  font-family: 'Inter Tight';
-  src: url('/src/fonts/inter-tight-latin.woff2') format('woff2');
-  font-weight: 400 700;
+  font-family: 'Geist';
+  src: url('/src/fonts/geist.woff2') format('woff2');
+  font-weight: 100 900;
   font-display: swap;
 }
 @font-face {
-  font-family: 'JetBrains Mono';
-  src: url('/src/fonts/jetbrains-mono-latin.woff2') format('woff2');
-  font-weight: 400 600;
+  font-family: 'Geist Mono';
+  src: url('/src/fonts/geist-mono.woff2') format('woff2');
+  font-weight: 100 900;
   font-display: swap;
 }
 
 :root {
-  --dd-bg: #ffffff;
-  --dd-panel: #ffffff;
-  --dd-panel-muted: #f6fbff;
-  --dd-ink: #0f0f11;
-  --dd-text: #20205c;
-  --dd-text-soft: #5b6099;
-  --dd-muted: #6875a3;
-  --dd-on-ink: #f4f6fb;
-  --dd-on-ink-strong: #ffffff;
-  --dd-on-accent: #ffffff;
-  --dd-line: #dce8f8;
-  --dd-line-soft: #e4edf9;
-  --dd-edge: #647a9e;
-  --dd-accent: #0068f5;
-  --dd-sans: 'Inter Tight', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --dd-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  --dd-radius: 6px;
+  --dd-bg: #edece8;
+  --dd-panel: #f6f5f2;
+  --dd-panel-muted: #e3e2dd;
+  --dd-ink: #161614;
+  --dd-text: #3d3c38;
+  --dd-text-soft: #5a5852;
+  --dd-muted: #696760;
+  --dd-on-ink: #d8d6cf;
+  --dd-on-ink-strong: #edece8;
+  --dd-on-accent: #161614;
+  --dd-line: #d6d4ce;
+  --dd-line-soft: #d6d4ce;
+  --dd-edge: #7f7c74;
+  --dd-accent: #ffc21f;
+  --dd-sans: 'Geist', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --dd-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Consolas, Menlo, monospace;
+  --dd-radius: 8px;
   --dd-radius-sm: 5px;
-  --dd-radius-xs: 4px;
+  --dd-radius-xs: 3px;
 }

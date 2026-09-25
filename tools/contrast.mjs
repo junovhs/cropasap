@@ -1,6 +1,6 @@
 // Contrast audit for the palette. Run with `node tools/contrast.mjs`.
 //
-// A paper interface fails in two different ways, and they need separate limits.
+// A paper-and-graphite interface fails in two different ways, and they need separate limits.
 // Text that is too pale is a reading problem, and WCAG 1.4.3 asks 4.5:1 for it.
 // Borders that are too pale are a *control* problem: nothing is illegible, but
 // no edge is visible either, so a field or button melts into its background.
@@ -86,29 +86,27 @@ function contrast(fg, bg) {
 
 // ---- what gets audited -----------------------------------------------------
 
-// The surfaces anything can be drawn on.
-const SURFACES = ['bg', 'bg-2', 'surface', 'surface-2'];
+// Two grounds, audited separately: the stone paper of the chrome, and the
+// graphite light box the picture sits on. A token is only ever checked against
+// the ground it is actually drawn on.
+const PAPER = ['page', 'raise', 'sunk'];
+const STAGE = ['stage', 'stage-2'];
 
 // Text tokens, and the 4.5:1 they answer to. --ink-4 is the documented
-// exception: the guide assigns it to labels, placeholders and inactive states,
-// which 1.4.3 does not govern, and it is never the only statement of anything.
-const TEXT = ['ink', 'ink-2', 'ink-3', 'accent', 'accent-2', 'positive', 'warn', 'danger'];
-
-// --edge identifies controls and can land on every authored surface. --line is
-// intentionally a subtler structural hairline: adjacent region colours and
-// layout already identify those boundaries, so the rule is not their sole cue.
-const BOUNDARIES = [['edge', SURFACES]];
+// exception: labels, placeholders and inactive states, which 1.4.3 does not
+// govern, and never the only statement of anything.
+const PAPER_TEXT = ['ink', 'ink-2', 'ink-3', 'saffron-ink', 'alarm', 'good'];
+const STAGE_TEXT = ['stage-ink', 'stage-ink-2', 'stage-dim', 'stage-good', 'stage-alarm', 'saffron'];
 
 let failures = 0;
 
-function table(title, rows, floor) {
+function table(title, names, surfaces, floor) {
   console.log(`\n${title}  (floor ${floor.toFixed(1)}:1)`);
-  console.log(''.padEnd(12) + SURFACES.map((s) => s.padStart(11)).join(''));
-  for (const [name, surfaces] of rows) {
+  console.log(''.padEnd(14) + surfaces.map((s) => s.padStart(11)).join(''));
+  for (const name of names) {
     const value = token(name);
-    let line = name.padEnd(12);
-    for (const surface of SURFACES) {
-      if (!surfaces.includes(surface)) { line += '          —'; continue; }
+    let line = name.padEnd(14);
+    for (const surface of surfaces) {
       const ratio = contrast(value, token(surface));
       const bad = ratio < floor;
       if (bad) failures++;
@@ -118,30 +116,30 @@ function table(title, rows, floor) {
   }
 }
 
-table('text (WCAG 1.4.3)', TEXT.map((t) => [t, SURFACES]), 4.5);
-table('boundaries (WCAG 1.4.11)', BOUNDARIES, 3);
+table('text on paper (WCAG 1.4.3)', PAPER_TEXT, PAPER, 4.5);
+table('text on the stage (WCAG 1.4.3)', STAGE_TEXT, STAGE, 4.5);
+// --edge and --stage-edge outline controls: for a field that outline is the
+// only statement of where the thing is, so it carries 1.4.11's 3:1.
+table('control edges on paper (WCAG 1.4.11)', ['edge'], PAPER, 3);
+table('control edges on the stage (WCAG 1.4.11)', ['stage-edge'], STAGE, 3);
+// The crop frame is the one control drawn on the picture's own ground.
+table('the crop frame on the stage (WCAG 1.4.11)', ['saffron'], STAGE, 3);
 
-// White on the accent is the primary button — the single most important control
-// in the workflow, so it is checked rather than assumed.
-const onAccent = contrast({ rgb: [1, 1, 1], alpha: 1 }, token('accent'));
+// Ink on saffron is the primary button — the most important control in the
+// workflow, so it is checked rather than assumed.
+const onAccent = contrast(token('ink'), token('saffron'));
 const onAccentBad = onAccent < 4.5;
 if (onAccentBad) failures++;
-console.log(`\nwhite on --accent (primary button): ${onAccent.toFixed(2)}:1${onAccentBad ? '  !' : ''}`);
+console.log(`\nink on --saffron (primary button): ${onAccent.toFixed(2)}:1${onAccentBad ? '  !' : ''}`);
+// Paper on ink is the selected tab, segment, pin and checkbox.
+const onInk = contrast(token('page'), token('ink'));
+if (onInk < 4.5) failures++;
+console.log(`page on --ink (the current thing): ${onInk.toFixed(2)}:1`);
 
-// --ink-4 is deliberately exempt from 1.4.3: labels, placeholders, counts and
-// inactive states, never the sole carrier of meaning.
-console.log(`ink-4 on bg (labels, placeholders, inactive): ${contrast(token('ink-4'), token('bg')).toFixed(2)}:1`);
+console.log(`ink-4 on page (labels, placeholders, inactive): ${contrast(token('ink-4'), token('page')).toFixed(2)}:1`);
 console.log('  non-essential per 1.4.3 — kept below --ink-3 on purpose');
-
-const line = contrast(token('line'), token('bg-2'));
-console.log(`line on bg-2 (structural region seam): ${line.toFixed(2)}:1`);
-console.log('  adjacent surfaces also establish the boundary — exempt from 1.4.11');
-
-// --line-soft draws the rhythm between sections inside one panel: decoration
-// rather than a component boundary. Holding it to 3:1 would make it shout as
-// loudly as control outlines, flattening the hierarchy it exists to restore.
-console.log(`line-soft on bg-2 (intra-panel rhythm): ${contrast(token('line-soft'), token('bg-2')).toFixed(2)}:1`);
-console.log('  decorative — exempt from 1.4.11, kept below --line on purpose');
+console.log(`line on page (structural region seam): ${contrast(token('line'), token('page')).toFixed(2)}:1`);
+console.log('  the change of surface also states the boundary — exempt from 1.4.11');
 
 console.log(failures ? `\n${failures} below floor\n` : '\nall clear\n');
 process.exit(failures ? 1 : 0);

@@ -11,8 +11,8 @@
 import { deflateSync } from 'node:zlib';
 import { writeFileSync } from 'node:fs';
 
-const PAPER = [0xf7, 0xf5, 0xf1];
-const ACCENT = [0xac, 0x47, 0x14];
+const PAPER = [0x16, 0x16, 0x14];   // --ink: the tile
+const ACCENT = [0xff, 0xc2, 0x1f];  // --saffron: the mark
 
 const CRC_TABLE = (() => {
   const table = new Int32Array(256);
