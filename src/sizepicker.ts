@@ -5,7 +5,7 @@
 // almost everything is, then the sizes this person pinned, saved and used.
 // Typing turns it back into the search it always was.
 
-import { search, ratioLabel, formatRows, browse } from './search.js';
+import { search, ratioLabel, browse } from './search.js';
 import { CATEGORIES } from './presets.js';
 import type { Category } from './presets.js';
 import { loadSaved, addSaved, renameSaved, removeSaved } from './saved.js';
@@ -17,8 +17,6 @@ const RECENTS_KEY = 'cropasap.recents';
 // Written before the rename to CropASAP; read once so recents survive it.
 const LEGACY_RECENTS_KEY = 'cropwizard.recents';
 const MAX_RECENTS = 5;
-// The palette's example searches: the jobs people most often arrive with.
-const SUGGESTIONS = ['Facebook cover', 'Instagram post', 'Instagram story', 'YouTube thumbnail', 'LinkedIn banner', 'A4'];
 
 /** A size waiting to be told what it is called, so it can go on the top bar. */
 type NamingState = Dimensions;
@@ -263,60 +261,11 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
 
   // ---- the home ------------------------------------------------------------
 
-  // The home opens on shapes, not words: this image, a custom size, and the four
-  // shapes almost everything is, each drawn to its own proportion. You can see
-  // the answer before you can read it.
-  function shapeSwatch(w: number, h: number): HTMLSpanElement {
-    const shape = swatch(w, h);
-    shape.classList.add('picker-tile-shape');
-    shape.style.width = `${parseFloat(shape.style.width) * 0.9}px`;
-    shape.style.height = `${parseFloat(shape.style.height) * 0.9}px`;
-    return shape;
-  }
-
-  function tileText(name: string, detail: string, dims: string): HTMLSpanElement {
-    const text = document.createElement('span');
-    text.className = 'picker-tile-text';
-    const strong = document.createElement('strong');
-    strong.textContent = name;
-    const small = document.createElement('span');
-    small.textContent = detail;
-    const pixels = document.createElement('span');
-    pixels.className = 'picker-tile-dims';
-    pixels.textContent = dims;
-    text.append(strong, small, pixels);
-    return text;
-  }
-
-  /** A door on the shape strip that does something rather than being a size. */
-  function actionTile(name: string, detail: string, dims: string, shape: HTMLElement, onRun: () => void): HTMLButtonElement {
-    const el = document.createElement('button');
-    el.type = 'button';
-    el.className = 'picker-tile is-action';
-    el.append(shape, tileText(name, detail, dims));
-    el.addEventListener('click', onRun);
-    return el;
-  }
-
   function heading(text: string): HTMLElement {
     const el = document.createElement('h3');
     el.className = 'picker-heading';
     el.textContent = text;
     return el;
-  }
-
-  function appendActionTiles(grid: HTMLElement): void {
-    if (template) {
-      const { w, h } = template;
-      grid.append(actionTile('This image', ratioLabel(w, h), `${w} × ${h}`, shapeSwatch(w, h), () => {
-        close();
-        onPick({ kind: 'template', key: 'template', name: 'Match this image', detail: 'Its own pixel size', w, h });
-      }));
-    }
-    const blank = document.createElement('span');
-    blank.className = 'picker-tile-shape picker-tile-plus';
-    blank.textContent = '+';
-    grid.append(actionTile('Custom', 'Exact pixels', 'W × H', blank, openCustom));
   }
 
   function renderChips(): void {
@@ -347,7 +296,7 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
   // each says which platforms are behind it so nobody has to guess whether
   // "Facebook cover" lives under Social or Ads.
   function renderCategoryCards(): void {
-    list.append(heading('Or browse by where it’s going'));
+    list.append(heading('Browse by where it’s going'));
     const grid = document.createElement('div');
     grid.className = 'picker-doors';
     for (const entry of CATEGORIES) {
@@ -375,58 +324,6 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
       grid.append(door);
     }
     list.append(grid);
-  }
-
-  // What people most often came here to make, as searches you can press. The
-  // field says "type"; these say what typing looks like.
-  function renderSuggestions(): void {
-    const row = document.createElement('div');
-    row.className = 'picker-try';
-    const label = document.createElement('span');
-    label.className = 'picker-try-label';
-    label.textContent = 'Try';
-    row.append(label);
-    for (const query of SUGGESTIONS) {
-      const chip = document.createElement('button');
-      chip.type = 'button';
-      chip.className = 'picker-try-chip';
-      chip.textContent = query;
-      chip.addEventListener('click', () => {
-        input.value = query;
-        cursor = 0;
-        render();
-        input.focus();
-      });
-      row.append(chip);
-    }
-    list.append(row);
-  }
-
-  function tile(result: SizeResult, index: number): HTMLElement {
-    const el = document.createElement('div');
-    el.className = 'picker-tile';
-    el.id = `picker-row-${index}`;
-    el.setAttribute('role', 'option');
-    el.setAttribute('aria-selected', String(index === cursor));
-    el.dataset.index = String(index);
-    el.append(shapeSwatch(result.w, result.h), tileText(result.name, result.detail, `${result.w} × ${result.h}`));
-    const held = isPinned(pins, result.w, result.h);
-    el.append(rowAction(
-      held ? 'Unpin from the top bar' : 'Pin to the top bar',
-      icon('pin'),
-      () => {
-        pins = togglePinned(result.name, result.w, result.h);
-        onPinsChange?.(pins);
-        render();
-      },
-      held,
-    ));
-    el.addEventListener('mousedown', (event) => {
-      event.preventDefault();
-      choose(index);
-    });
-    el.addEventListener('mousemove', () => setCursor(index));
-    return el;
   }
 
   // ---- the custom form -----------------------------------------------------
@@ -596,11 +493,16 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
       // Recents stay out of the home: a size worth coming back to is one you
       // pin or save, and a list of whatever you last clicked is noise between
       // you and the search. They still rank typed results.
-      rows = [...formatRows(), ...search('', [], saved, template, pins)];
+      rows = search('', [], saved, template, pins);
     }
+    const home = !typed && !category;
+    // The home is the search and the doors. Only the sizes you chose to keep
+    // (pinned, saved) are listed under them; nothing else competes.
+    if (home) renderCategoryCards();
     cursor = Math.min(cursor, Math.max(0, rows.length - 1));
 
     if (!rows.length) {
+      if (home) return;
       const none = document.createElement('p');
       none.className = 'picker-empty';
       none.textContent = 'No size by that name. Type exact pixels instead — like 1200 x 630.';
@@ -608,26 +510,8 @@ export function createSizePicker(options: SizePickerOptions): SizePickerControll
       return;
     }
 
-    // The common formats are a grid of tiles, not a run of rows, and they are
-    // always the first entries — so the loop below starts after them.
-    let first = 0;
-    if (!typed && !category) {
-      renderSuggestions();
-      renderCategoryCards();
-      list.append(heading('Or start from a shape'));
-      const grid = document.createElement('div');
-      grid.className = 'picker-formats';
-      appendActionTiles(grid);
-      while (first < rows.length && rows[first]?.kind === 'format') {
-        grid.append(tile(rows[first] as SizeResult, first));
-        first += 1;
-      }
-      list.append(grid);
-    }
-
     let section: string | null = null;
     rows.forEach((result, index) => {
-      if (index < first) return;
       if (result.section && result.section !== section) {
         section = result.section;
         const head = document.createElement('div');
